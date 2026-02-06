@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title TrustForgeDAO
- * @dev Basic DAO using TFX token for governance
+ * @dev DAO that controls TrustForge via executable proposals
  */
 contract TrustForgeDAO is Ownable {
     IERC20 public immutable tfxToken;
@@ -15,7 +15,9 @@ contract TrustForgeDAO is Ownable {
     uint256 public constant VOTING_DURATION = 6 hours;
 
     struct Proposal {
-        string description;
+        address target; // Contract to call (TrustForge)
+        uint256 value; // ETH to send (usually 0)
+        bytes data; // Encoded function call
         uint256 yesVotes;
         uint256 noVotes;
         uint256 endTime;
@@ -26,8 +28,17 @@ contract TrustForgeDAO is Ownable {
     mapping(uint256 => Proposal) public proposals;
     mapping(uint256 => mapping(address => bool)) public hasVoted;
 
-    event ProposalCreated(uint256 indexed proposalId, string description);
-    event Voted(uint256 indexed proposalId, address voter, bool support, uint256 weight);
+    event ProposalCreated(
+        uint256 indexed proposalId,
+        address indexed target,
+        string description
+    );
+    event Voted(
+        uint256 indexed proposalId,
+        address indexed voter,
+        bool support,
+        uint256 weight
+    );
     event ProposalExecuted(uint256 indexed proposalId);
 
     constructor(address _tfxToken) Ownable(msg.sender) {
@@ -37,23 +48,31 @@ contract TrustForgeDAO is Ownable {
     // =========================
     // Proposal Creation
     // =========================
-    function createProposal(string calldata description) external {
+    function createProposal(
+        address target,
+        uint256 value,
+        bytes calldata data,
+        string calldata description
+    ) external {
         require(
             tfxToken.balanceOf(msg.sender) >= MIN_PROPOSAL_TOKENS,
             "Not enough TFX to create proposal"
         );
+        require(target != address(0), "Invalid target");
 
         proposalCount++;
 
         proposals[proposalCount] = Proposal({
-            description: description,
+            target: target,
+            value: value,
+            data: data,
             yesVotes: 0,
             noVotes: 0,
             endTime: block.timestamp + VOTING_DURATION,
             executed: false
         });
 
-        emit ProposalCreated(proposalCount, description);
+        emit ProposalCreated(proposalCount, target, description);
     }
 
     // =========================
@@ -91,23 +110,26 @@ contract TrustForgeDAO is Ownable {
 
         proposal.executed = true;
 
-        // 🔧 Logic placeholder (important!)
-        // In real DAO, this could:
-        // - change protocol params
-        // - transfer funds
-        // - call another contract
+        (bool success, ) = proposal.target.call{value: proposal.value}(
+            proposal.data
+        );
+        require(success, "Execution failed");
 
         emit ProposalExecuted(proposalId);
     }
 
     // =========================
-    // Helper
+    // View Helper
     // =========================
-    function getProposal(uint256 proposalId)
+    function getProposal(
+        uint256 proposalId
+    )
         external
         view
         returns (
-            string memory description,
+            address target,
+            uint256 value,
+            bytes memory data,
             uint256 yesVotes,
             uint256 noVotes,
             uint256 endTime,
@@ -115,6 +137,17 @@ contract TrustForgeDAO is Ownable {
         )
     {
         Proposal storage p = proposals[proposalId];
-        return (p.description, p.yesVotes, p.noVotes, p.endTime, p.executed);
+        return (
+            p.target,
+            p.value,
+            p.data,
+            p.yesVotes,
+            p.noVotes,
+            p.endTime,
+            p.executed
+        );
     }
+
+    // Allow DAO to receive ETH if needed
+    receive() external payable {}
 }

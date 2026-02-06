@@ -6,8 +6,8 @@ import TFXTokenABI from "../abis/TFXToken.json";
 import TrustForgeABI from "../abis/TrustForge.json";
 
 // Addresses (from your deployments)
-const TFX_ADDRESS = "0x6D646C4d03759b28bae0f64487b44d0eE5BD85F0";
-const TRUSTFORGE_ADDRESS = "0x1E6c3c940b8C9Fd7d6546EbA6105237e508b4201";
+const TFX_ADDRESS = "0x4b821BBc5C7327A400486eFB61DA250979e32b3B";
+const TRUSTFORGE_ADDRESS = "0x2caB839bB17CeB77c09d0EdE66E5349Cd2130c18";
 
 // Risk Pool Enum (matching contract)
 const RiskPool = {

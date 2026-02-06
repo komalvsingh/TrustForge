@@ -275,8 +275,8 @@
       ]
     },
     "C:\\Users\\ACER\\ABCC\\Blockchain\\contracts\\trustforge.sol": {
-      "lastModificationDate": 1770356556686,
-      "contentHash": "b3b29b302bff8dabe9a18ed15f4e269f",
+      "lastModificationDate": 1770365310827,
+      "contentHash": "362498f1f7a581236848d0b66fd061d7",
       "sourceName": "contracts/trustforge.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -390,6 +390,46 @@
       ],
       "artifacts": [
         "Pausable"
+      ]
+    },
+    "C:\\Users\\ACER\\ABCC\\Blockchain\\contracts\\dao.sol": {
+      "lastModificationDate": 1770364886831,
+      "contentHash": "7ec709a31fc34a06fd57039a143a8aa0",
+      "sourceName": "contracts/dao.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "TrustForgeDAO"
       ]
     }
   }
