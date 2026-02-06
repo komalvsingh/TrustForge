@@ -31,6 +31,7 @@ const LenderDashboard = () => {
   const [lendMode, setLendMode] = useState('manual'); // 'manual' or 'auto'
   const [txLoading, setTxLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [showDebug, setShowDebug] = useState(false);
 
   // Pool configurations
   const poolConfig = {
@@ -63,6 +64,9 @@ const LenderDashboard = () => {
   useEffect(() => {
     if (account) {
       loadData();
+      // Auto-refresh data every 30 seconds
+      const interval = setInterval(loadData, 30000);
+      return () => clearInterval(interval);
     }
   }, [account]);
 
@@ -85,6 +89,17 @@ const LenderDashboard = () => {
         medRisk: medRates,
         highRisk: highRates,
       });
+
+      // Debug logging
+      if (showDebug) {
+        console.log('=== LENDER DEBUG INFO ===');
+        console.log('Lender Info:', lender);
+        console.log('Pool Stats:', pools);
+        console.log('Interest Rates:', { lowRates, medRates, highRates });
+        console.log('Pending Interest (Low):', lender?.pendingInterestLow);
+        console.log('Pending Interest (Med):', lender?.pendingInterestMed);
+        console.log('Pending Interest (High):', lender?.pendingInterestHigh);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
       showMessage('error', 'Failed to load dashboard data');
@@ -174,10 +189,33 @@ const LenderDashboard = () => {
     }
   };
 
-  const formatNumber = (num) => {
+  // Enhanced number formatting with more decimal places for small amounts
+  const formatNumber = (num, minDecimals = 2, maxDecimals = 8) => {
     const n = parseFloat(num);
     if (isNaN(n)) return '0.00';
-    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    
+    // If number is very small but not zero, show more decimals
+    if (n > 0 && n < 0.01) {
+      return n.toLocaleString('en-US', { 
+        minimumFractionDigits: 6, 
+        maximumFractionDigits: maxDecimals 
+      });
+    }
+    
+    return n.toLocaleString('en-US', { 
+      minimumFractionDigits: minDecimals, 
+      maximumFractionDigits: maxDecimals 
+    });
+  };
+
+  // Scientific notation for very small numbers
+  const formatScientific = (num) => {
+    const n = parseFloat(num);
+    if (isNaN(n) || n === 0) return '0';
+    if (n > 0 && n < 0.000001) {
+      return n.toExponential(6);
+    }
+    return formatNumber(num, 2, 8);
   };
 
   const formatPercentage = (basisPoints) => {
@@ -202,12 +240,18 @@ const LenderDashboard = () => {
   };
 
   const getTotalPendingInterest = () => {
-    if (!lenderInfo) return '0';
+    if (!lenderInfo) return 0;
     return (
       parseFloat(lenderInfo.pendingInterestLow) +
       parseFloat(lenderInfo.pendingInterestMed) +
       parseFloat(lenderInfo.pendingInterestHigh)
-    ).toFixed(2);
+    );
+  };
+
+  // Check if interest is very small
+  const hasSmallInterest = () => {
+    const total = getTotalPendingInterest();
+    return total > 0 && total < 0.01;
   };
 
   if (!account) {
@@ -236,51 +280,215 @@ const LenderDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Lender Dashboard</h1>
-          <p className="text-gray-600">Manage your deposits and earn interest across risk pools</p>
+        {/* Header with Debug Toggle */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-gray-800 mb-2">Lender Dashboard</h1>
+            <p className="text-gray-600">Manage your deposits and earn interest across risk pools</p>
+          </div>
+          <button
+            onClick={() => setShowDebug(!showDebug)}
+            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-medium transition-colors"
+          >
+            {showDebug ? '🔍 Hide Debug' : '🔧 Show Debug'}
+          </button>
         </div>
+
+        {/* Debug Info Panel */}
+        {showDebug && lenderInfo && (
+          <div className="mb-6 bg-gray-900 text-green-400 rounded-lg p-6 font-mono text-sm overflow-x-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold text-lg">🔍 Debug Information</h3>
+              <button 
+                onClick={loadData}
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+              >
+                🔄 Refresh
+              </button>
+            </div>
+            <div className="space-y-2">
+              <div className="text-yellow-300 font-bold">📊 Interest Data:</div>
+              <div><span className="text-gray-400">Low Risk Pending:</span> {lenderInfo.pendingInterestLow} TFX</div>
+              <div><span className="text-gray-400">Med Risk Pending:</span> {lenderInfo.pendingInterestMed} TFX</div>
+              <div><span className="text-gray-400">High Risk Pending:</span> {lenderInfo.pendingInterestHigh} TFX</div>
+              <div><span className="text-gray-400">Total Pending:</span> {getTotalPendingInterest()} TFX</div>
+              <div><span className="text-gray-400">Total Earned:</span> {lenderInfo.totalInterestEarned} TFX</div>
+              
+              <div className="pt-3 mt-3 border-t border-gray-700">
+                <div className="text-yellow-300 font-bold">💰 Deposit Data:</div>
+                <div><span className="text-gray-400">Low Risk Deposit:</span> {lenderInfo.depositedLowRisk} TFX</div>
+                <div><span className="text-gray-400">Med Risk Deposit:</span> {lenderInfo.depositedMedRisk} TFX</div>
+                <div><span className="text-gray-400">High Risk Deposit:</span> {lenderInfo.depositedHighRisk} TFX</div>
+              </div>
+              
+              <div className="pt-3 mt-3 border-t border-gray-700">
+                <div className="text-yellow-300 font-bold">📈 Interest Rates (Basis Points):</div>
+                {interestRates.lowRisk && (
+                  <div>
+                    <span className="text-gray-400">Low Risk:</span> {interestRates.lowRisk.baseRate} - {interestRates.lowRisk.maxRate} BP 
+                    <span className="text-green-400"> ({formatPercentage(interestRates.lowRisk.baseRate)} - {formatPercentage(interestRates.lowRisk.maxRate)})</span>
+                  </div>
+                )}
+                {interestRates.medRisk && (
+                  <div>
+                    <span className="text-gray-400">Med Risk:</span> {interestRates.medRisk.baseRate} - {interestRates.medRisk.maxRate} BP 
+                    <span className="text-yellow-400"> ({formatPercentage(interestRates.medRisk.baseRate)} - {formatPercentage(interestRates.medRisk.maxRate)})</span>
+                  </div>
+                )}
+                {interestRates.highRisk && (
+                  <div>
+                    <span className="text-gray-400">High Risk:</span> {interestRates.highRisk.baseRate} - {interestRates.highRisk.maxRate} BP 
+                    <span className="text-red-400"> ({formatPercentage(interestRates.highRisk.baseRate)} - {formatPercentage(interestRates.highRisk.maxRate)})</span>
+                  </div>
+                )}
+              </div>
+
+              {hasSmallInterest() && (
+                <div className="pt-3 mt-3 border-t border-red-700">
+                  <div className="text-red-400 font-bold">⚠️ WARNING: Very Small Interest Detected!</div>
+                  <div className="text-red-300 text-xs mt-1">
+                    Interest rates may be too low in your smart contract. Consider increasing basis points to 800-2500 range.
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Warning for small interest amounts */}
+        {hasSmallInterest() && !showDebug && (
+          <div className="mb-6 bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1">
+                <h4 className="font-bold text-yellow-800 mb-1">⚠️ Very Small Interest Amount Detected</h4>
+                <p className="text-yellow-700 text-sm mb-2">
+                  Your interest amount is very small ({formatScientific(getTotalPendingInterest())} TFX). This could indicate:
+                </p>
+                <ul className="list-disc list-inside text-yellow-700 text-sm space-y-1 mb-3">
+                  <li>Interest rates in smart contract are too low (should be 800-2500 basis points)</li>
+                  <li>Very short time period since deposit/loan</li>
+                  <li>Small principal amount</li>
+                </ul>
+                <button
+                  onClick={() => setShowDebug(true)}
+                  className="text-sm bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-3 py-1 rounded font-medium"
+                >
+                  Show Debug Info
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Message Alert */}
         {message.text && (
-          <div className={`mb-6 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-            {message.text}
+          <div className={`mb-6 p-4 rounded-lg flex items-center gap-2 ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+            {message.type === 'success' ? (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            )}
+            <span>{message.text}</span>
           </div>
         )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="text-sm text-gray-500 mb-1">Wallet Balance</div>
+          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-gray-500">Wallet Balance</div>
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              </div>
+            </div>
             <div className="text-2xl font-bold text-gray-800">{formatNumber(tfxBalance)} TFX</div>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="text-sm text-gray-500 mb-1">Total Deposited</div>
+          
+          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-gray-500">Total Deposited</div>
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
             <div className="text-2xl font-bold text-blue-600">{formatNumber(getTotalDeposited())} TFX</div>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="text-sm text-gray-500 mb-1">Pending Interest</div>
-            <div className="text-2xl font-bold text-green-600">{formatNumber(getTotalPendingInterest())} TFX</div>
+          
+          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-gray-500">Pending Interest</div>
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-2xl font-bold text-green-600">
+              {formatNumber(getTotalPendingInterest(), 2, 8)} TFX
+            </div>
+            {hasSmallInterest() && (
+              <div className="text-xs text-yellow-600 mt-1 font-mono">
+                ({formatScientific(getTotalPendingInterest())})
+              </div>
+            )}
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="text-sm text-gray-500 mb-1">Total Earned</div>
+          
+          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-gray-500">Total Earned</div>
+              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                </svg>
+              </div>
+            </div>
             <div className="text-2xl font-bold text-purple-600">
-              {lenderInfo ? formatNumber(lenderInfo.totalInterestEarned) : '0.00'} TFX
+              {lenderInfo ? formatNumber(lenderInfo.totalInterestEarned, 2, 8) : '0.00'} TFX
             </div>
           </div>
         </div>
 
         {/* Claim Interest Button */}
-        {parseFloat(getTotalPendingInterest()) > 0 && (
+        {getTotalPendingInterest() > 0 && (
           <div className="mb-8">
             <button
               onClick={handleClaimInterest}
               disabled={txLoading}
-              className="w-full md:w-auto bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 px-8 rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              className="w-full md:w-auto bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 px-8 rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg flex items-center gap-2"
             >
-              {txLoading ? 'Processing...' : `Claim ${formatNumber(getTotalPendingInterest())} TFX Interest`}
+              {txLoading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                  Claim {formatNumber(getTotalPendingInterest(), 2, 8)} TFX Interest
+                </>
+              )}
             </button>
+            {hasSmallInterest() && (
+              <p className="text-sm text-gray-600 mt-2 ml-2">
+                Note: Actual amount is {formatScientific(getTotalPendingInterest())} TFX
+              </p>
+            )}
           </div>
         )}
 
@@ -496,7 +704,7 @@ const LenderDashboard = () => {
                       {lendMode === 'manual' ? (
                         <span><strong>Manual Mode:</strong> Deposit your funds into a specific risk pool of your choice. You have full control over risk allocation.</span>
                       ) : (
-                        <span><strong>Auto Mode:</strong> The smart contract automatically distributes your deposit across all three pools based on current market conditions and optimal returns.</span>
+                        <span><strong>Auto Mode:</strong> The smart contract automatically distributes your deposit across all three pools (40% Low, 35% Medium, 25% High) for balanced returns.</span>
                       )}
                     </div>
                   </div>
@@ -507,36 +715,36 @@ const LenderDashboard = () => {
               {lendMode === 'manual' && (
                 <div className="mb-6">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">Select Pool</label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {Object.entries(poolConfig).map(([poolId, config]) => (
-                    <button
-                      key={poolId}
-                      onClick={() => setSelectedPool(parseInt(poolId))}
-                      className={`p-4 rounded-lg border-2 transition-all ${
-                        selectedPool === parseInt(poolId)
-                          ? `${config.borderColor} ${config.bgLight}`
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-bold text-gray-800">{config.name}</h3>
-                        <div className={`${config.color} w-3 h-3 rounded-full`}></div>
-                      </div>
-                      <p className="text-sm text-gray-600">{config.description}</p>
-                      {lenderInfo && (
-                        <div className="mt-3 pt-3 border-t border-gray-200">
-                          <div className="text-xs text-gray-500">Your Deposit</div>
-                          <div className="text-sm font-semibold text-blue-600">
-                            {poolId === '0' && formatNumber(lenderInfo.depositedLowRisk)}
-                            {poolId === '1' && formatNumber(lenderInfo.depositedMedRisk)}
-                            {poolId === '2' && formatNumber(lenderInfo.depositedHighRisk)} TFX
-                          </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {Object.entries(poolConfig).map(([poolId, config]) => (
+                      <button
+                        key={poolId}
+                        onClick={() => setSelectedPool(parseInt(poolId))}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          selectedPool === parseInt(poolId)
+                            ? `${config.borderColor} ${config.bgLight} shadow-md`
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-bold text-gray-800">{config.name}</h3>
+                          <div className={`${config.color} w-3 h-3 rounded-full`}></div>
                         </div>
-                      )}
-                    </button>
-                  ))}
+                        <p className="text-sm text-gray-600">{config.description}</p>
+                        {lenderInfo && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="text-xs text-gray-500">Your Deposit</div>
+                            <div className="text-sm font-semibold text-blue-600">
+                              {poolId === '0' && formatNumber(lenderInfo.depositedLowRisk)}
+                              {poolId === '1' && formatNumber(lenderInfo.depositedMedRisk)}
+                              {poolId === '2' && formatNumber(lenderInfo.depositedHighRisk)} TFX
+                            </div>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
               )}
 
               {/* Auto Lending Info - Only show in auto mode */}
@@ -574,6 +782,8 @@ const LenderDashboard = () => {
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
                       placeholder="0.00"
+                      step="0.01"
+                      min="0"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <div className="mt-2 text-sm text-gray-500">
@@ -582,7 +792,7 @@ const LenderDashboard = () => {
                   </div>
                   <button
                     onClick={handleDeposit}
-                    disabled={txLoading || !depositAmount}
+                    disabled={txLoading || !depositAmount || parseFloat(depositAmount) <= 0}
                     className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {txLoading ? 'Processing...' : lendMode === 'auto' ? 'Auto Deposit to All Pools' : 'Deposit to Pool'}
@@ -614,6 +824,8 @@ const LenderDashboard = () => {
                       value={withdrawAmount}
                       onChange={(e) => setWithdrawAmount(e.target.value)}
                       placeholder="0.00"
+                      step="0.01"
+                      min="0"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <div className="mt-2 text-sm text-gray-500">
@@ -628,7 +840,7 @@ const LenderDashboard = () => {
                   </div>
                   <button
                     onClick={handleWithdraw}
-                    disabled={txLoading || !withdrawAmount}
+                    disabled={txLoading || !withdrawAmount || parseFloat(withdrawAmount) <= 0}
                     className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-purple-600 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {txLoading ? 'Processing...' : 'Withdraw from Pool'}
@@ -644,19 +856,19 @@ const LenderDashboard = () => {
                     <div className="bg-white rounded-lg p-4">
                       <div className="text-sm text-gray-600 mb-1">Low Risk Pool</div>
                       <div className="text-xl font-bold text-green-600">
-                        {formatNumber(lenderInfo.pendingInterestLow)} TFX
+                        {formatNumber(lenderInfo.pendingInterestLow, 2, 8)} TFX
                       </div>
                     </div>
                     <div className="bg-white rounded-lg p-4">
                       <div className="text-sm text-gray-600 mb-1">Medium Risk Pool</div>
                       <div className="text-xl font-bold text-green-600">
-                        {formatNumber(lenderInfo.pendingInterestMed)} TFX
+                        {formatNumber(lenderInfo.pendingInterestMed, 2, 8)} TFX
                       </div>
                     </div>
                     <div className="bg-white rounded-lg p-4">
                       <div className="text-sm text-gray-600 mb-1">High Risk Pool</div>
                       <div className="text-xl font-bold text-green-600">
-                        {formatNumber(lenderInfo.pendingInterestHigh)} TFX
+                        {formatNumber(lenderInfo.pendingInterestHigh, 2, 8)} TFX
                       </div>
                     </div>
                   </div>
@@ -675,7 +887,7 @@ const LenderDashboard = () => {
                 <div className="text-center">
                   <div className="text-sm opacity-90 mb-2">Total Interest Earned (All Time)</div>
                   <div className="text-5xl font-bold mb-4">
-                    {lenderInfo ? formatNumber(lenderInfo.totalInterestEarned) : '0.00'} TFX
+                    {lenderInfo ? formatNumber(lenderInfo.totalInterestEarned, 2, 8) : '0.00'} TFX
                   </div>
                   <div className="text-sm opacity-90">
                     Keep lending to earn more passive income!
@@ -694,9 +906,14 @@ const LenderDashboard = () => {
                       <div className="bg-green-500 w-3 h-3 rounded-full"></div>
                     </div>
                     <div className="text-3xl font-bold text-green-600 mb-2">
-                      {lenderInfo ? formatNumber(lenderInfo.pendingInterestLow) : '0.00'}
+                      {lenderInfo ? formatNumber(lenderInfo.pendingInterestLow, 2, 8) : '0.00'}
                     </div>
                     <div className="text-sm text-gray-600">TFX Pending</div>
+                    {parseFloat(lenderInfo?.pendingInterestLow || 0) > 0 && parseFloat(lenderInfo?.pendingInterestLow || 0) < 0.01 && (
+                      <div className="text-xs text-yellow-600 mt-1 font-mono">
+                        ({formatScientific(lenderInfo.pendingInterestLow)})
+                      </div>
+                    )}
                     <div className="mt-4 pt-4 border-t border-green-200">
                       <div className="text-xs text-gray-500 mb-1">Your Deposit</div>
                       <div className="text-sm font-semibold text-gray-800">
@@ -712,9 +929,14 @@ const LenderDashboard = () => {
                       <div className="bg-yellow-500 w-3 h-3 rounded-full"></div>
                     </div>
                     <div className="text-3xl font-bold text-yellow-600 mb-2">
-                      {lenderInfo ? formatNumber(lenderInfo.pendingInterestMed) : '0.00'}
+                      {lenderInfo ? formatNumber(lenderInfo.pendingInterestMed, 2, 8) : '0.00'}
                     </div>
                     <div className="text-sm text-gray-600">TFX Pending</div>
+                    {parseFloat(lenderInfo?.pendingInterestMed || 0) > 0 && parseFloat(lenderInfo?.pendingInterestMed || 0) < 0.01 && (
+                      <div className="text-xs text-yellow-600 mt-1 font-mono">
+                        ({formatScientific(lenderInfo.pendingInterestMed)})
+                      </div>
+                    )}
                     <div className="mt-4 pt-4 border-t border-yellow-200">
                       <div className="text-xs text-gray-500 mb-1">Your Deposit</div>
                       <div className="text-sm font-semibold text-gray-800">
@@ -730,9 +952,14 @@ const LenderDashboard = () => {
                       <div className="bg-red-500 w-3 h-3 rounded-full"></div>
                     </div>
                     <div className="text-3xl font-bold text-red-600 mb-2">
-                      {lenderInfo ? formatNumber(lenderInfo.pendingInterestHigh) : '0.00'}
+                      {lenderInfo ? formatNumber(lenderInfo.pendingInterestHigh, 2, 8) : '0.00'}
                     </div>
                     <div className="text-sm text-gray-600">TFX Pending</div>
+                    {parseFloat(lenderInfo?.pendingInterestHigh || 0) > 0 && parseFloat(lenderInfo?.pendingInterestHigh || 0) < 0.01 && (
+                      <div className="text-xs text-yellow-600 mt-1 font-mono">
+                        ({formatScientific(lenderInfo.pendingInterestHigh)})
+                      </div>
+                    )}
                     <div className="mt-4 pt-4 border-t border-red-200">
                       <div className="text-xs text-gray-500 mb-1">Your Deposit</div>
                       <div className="text-sm font-semibold text-gray-800">
@@ -754,7 +981,7 @@ const LenderDashboard = () => {
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-gray-700 font-semibold">Total Claimable Interest:</div>
                     <div className="text-3xl font-bold text-green-600">
-                      {formatNumber(getTotalPendingInterest())} TFX
+                      {formatNumber(getTotalPendingInterest(), 2, 8)} TFX
                     </div>
                   </div>
 
@@ -762,19 +989,19 @@ const LenderDashboard = () => {
                     <div>
                       <div className="text-gray-500">Low Risk</div>
                       <div className="font-semibold text-green-600">
-                        {lenderInfo ? formatNumber(lenderInfo.pendingInterestLow) : '0.00'}
+                        {lenderInfo ? formatNumber(lenderInfo.pendingInterestLow, 2, 8) : '0.00'}
                       </div>
                     </div>
                     <div>
                       <div className="text-gray-500">Medium Risk</div>
                       <div className="font-semibold text-yellow-600">
-                        {lenderInfo ? formatNumber(lenderInfo.pendingInterestMed) : '0.00'}
+                        {lenderInfo ? formatNumber(lenderInfo.pendingInterestMed, 2, 8) : '0.00'}
                       </div>
                     </div>
                     <div>
                       <div className="text-gray-500">High Risk</div>
                       <div className="font-semibold text-red-600">
-                        {lenderInfo ? formatNumber(lenderInfo.pendingInterestHigh) : '0.00'}
+                        {lenderInfo ? formatNumber(lenderInfo.pendingInterestHigh, 2, 8) : '0.00'}
                       </div>
                     </div>
                   </div>
@@ -782,7 +1009,7 @@ const LenderDashboard = () => {
 
                 <button
                   onClick={handleClaimInterest}
-                  disabled={txLoading || parseFloat(getTotalPendingInterest()) === 0}
+                  disabled={txLoading || getTotalPendingInterest() === 0}
                   className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 px-8 rounded-lg font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
                   {txLoading ? (
@@ -793,14 +1020,14 @@ const LenderDashboard = () => {
                       </svg>
                       Processing Transaction...
                     </span>
-                  ) : parseFloat(getTotalPendingInterest()) === 0 ? (
+                  ) : getTotalPendingInterest() === 0 ? (
                     '✓ No Interest to Claim'
                   ) : (
-                    `🎉 Claim ${formatNumber(getTotalPendingInterest())} TFX Interest`
+                    `🎉 Claim ${formatNumber(getTotalPendingInterest(), 2, 8)} TFX Interest`
                   )}
                 </button>
 
-                {parseFloat(getTotalPendingInterest()) === 0 && (
+                {getTotalPendingInterest() === 0 && (
                   <div className="mt-4 text-center text-sm text-gray-500">
                     Interest accrues over time as borrowers repay their loans. Keep your funds deposited to earn more!
                   </div>
