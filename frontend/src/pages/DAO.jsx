@@ -14,17 +14,12 @@ import {
   Wifi,
   CheckCircle,
   LayoutGrid,
-  Info
+  Info,
 } from "lucide-react";
 
 const DAO = () => {
-  const {
-    dao,
-    getAllProposals,
-    fetchProposalCount,
-    getVotingPower,
-    loading,
-  } = useDAO();
+  const { dao, getAllProposals, fetchProposalCount, getVotingPower, loading } =
+    useDAO();
 
   const { account } = useBlockchain();
 
@@ -82,8 +77,8 @@ const DAO = () => {
             </span>
           </h1>
           <p className="text-gray-400 text-lg md:text-xl max-w-3xl mx-auto mb-10 leading-relaxed font-light">
-            Empowering the community to govern protocol parameters and shape the future of TrustForge.
-            Your voice, your vote, your protocol.
+            Empowering the community to govern protocol parameters and shape the
+            future of TrustForge. Your voice, your vote, your protocol.
           </p>
 
           <div className="flex flex-wrap justify-center gap-6 animate-fade-in-up animation-delay-200">
@@ -92,8 +87,12 @@ const DAO = () => {
                 <Vote className="w-6 h-6 text-blue-400" />
               </div>
               <div className="text-left">
-                <p className="text-xs text-gray-500 uppercase font-black tracking-widest">Your Voting Power</p>
-                <p className="text-2xl font-black text-white">{votingPower} TFX</p>
+                <p className="text-xs text-gray-500 uppercase font-black tracking-widest">
+                  Your Voting Power
+                </p>
+                <p className="text-2xl font-black text-white">
+                  {votingPower} TFX
+                </p>
               </div>
             </div>
 
@@ -125,11 +124,17 @@ const DAO = () => {
             {proposals.length === 0 ? (
               <div className="col-span-full py-24 text-center bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl border-dashed">
                 <Info className="w-12 h-12 text-gray-700 mx-auto mb-4" />
-                <p className="text-gray-500 font-light italic">No governance proposals have been submitted yet.</p>
+                <p className="text-gray-500 font-light italic">
+                  No governance proposals have been submitted yet.
+                </p>
               </div>
             ) : (
               proposals.map((proposal) => (
-                <ProposalCard key={proposal.id} proposal={proposal} />
+                <ProposalCard
+                  key={proposal.id}
+                  proposal={proposal}
+                  onActionComplete={loadDAO}
+                />
               ))
             )}
           </div>
@@ -157,64 +162,127 @@ const DAO = () => {
       </main>
 
       <style jsx>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
 
         .font-inter {
-          font-family: 'Inter', system-ui, -apple-system, sans-serif;
+          font-family:
+            "Inter",
+            system-ui,
+            -apple-system,
+            sans-serif;
         }
 
         .bg-grid-pattern {
-          background-image: 
+          background-image:
             linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+            linear-gradient(
+              90deg,
+              rgba(99, 102, 241, 0.03) 1px,
+              transparent 1px
+            );
           background-size: 50px 50px;
         }
 
         @keyframes gradient-x {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
+          0%,
+          100% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
         }
 
         @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-20px);
+          }
         }
 
         @keyframes float-delayed {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(20px); }
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(20px);
+          }
         }
 
         @keyframes fade-in-down {
-          from { opacity: 0; transform: translateY(-20px); }
-          to { opacity: 1; transform: translateY(0); }
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         @keyframes pulse-slow {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 0.6; }
+          0%,
+          100% {
+            opacity: 0.3;
+          }
+          50% {
+            opacity: 0.6;
+          }
         }
 
         @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
 
-        .animate-gradient-x { animation: gradient-x 3s ease infinite; }
-        .animate-float { animation: float 8s ease-in-out infinite; }
-        .animate-float-delayed { animation: float-delayed 8s ease-in-out infinite; }
-        .animate-fade-in-down { animation: fade-in-down 0.8s ease-out forwards; }
-        .animate-fade-in-up { animation: fade-in-up 0.8s ease-out forwards; opacity: 0; }
-        .animate-pulse-slow { animation: pulse-slow 4s ease-in-out infinite; }
-        .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+        .animate-gradient-x {
+          animation: gradient-x 3s ease infinite;
+        }
+        .animate-float {
+          animation: float 8s ease-in-out infinite;
+        }
+        .animate-float-delayed {
+          animation: float-delayed 8s ease-in-out infinite;
+        }
+        .animate-fade-in-down {
+          animation: fade-in-down 0.8s ease-out forwards;
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.8s ease-out forwards;
+          opacity: 0;
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 4s ease-in-out infinite;
+        }
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out forwards;
+        }
 
-        .animation-delay-200 { animation-delay: 0.2s; }
-        .animation-delay-400 { animation-delay: 0.4s; }
+        .animation-delay-200 {
+          animation-delay: 0.2s;
+        }
+        .animation-delay-400 {
+          animation-delay: 0.4s;
+        }
       `}</style>
     </div>
   );

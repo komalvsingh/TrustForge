@@ -1,4 +1,6 @@
 import { useDAO } from "../context/DAOContext";
+import TrustForgeABI from "../abis/TrustForge.json";
+import { Interface } from "ethers";
 import {
   Vote,
   Clock,
@@ -6,10 +8,26 @@ import {
   CheckCircle,
   XCircle,
   Play,
-  TrendingUp 
+  TrendingUp,
 } from "lucide-react";
+const trustForgeInterface = new Interface(TrustForgeABI.abi);
 
-const ProposalCard = ({ proposal }) => {
+const decodeProposalAction = (proposal) => {
+  try {
+    const decoded = trustForgeInterface.parseTransaction({
+      data: proposal.data,
+    });
+
+    return {
+      name: decoded.name,
+      args: decoded.args,
+    };
+  } catch {
+    return null; // unknown / non-TrustForge call
+  }
+};
+
+const ProposalCard = ({ proposal, onActionComplete }) => {
   const {
     vote,
     executeProposal,
@@ -23,10 +41,12 @@ const ProposalCard = ({ proposal }) => {
 
   const canVote = status === "Active";
   const canExecute = status === "Passed" && !proposal.executed;
+  const decodedAction = decodeProposalAction(proposal);
 
   const handleVote = async (support) => {
     try {
       await vote(proposal.id, support);
+      onActionComplete?.();
     } catch (err) {
       console.error("Voting failed:", err);
     }
@@ -35,6 +55,7 @@ const ProposalCard = ({ proposal }) => {
   const handleExecute = async () => {
     try {
       await executeProposal(proposal.id);
+      onActionComplete?.();
     } catch (err) {
       console.error("Execution failed:", err);
     }
@@ -42,10 +63,14 @@ const ProposalCard = ({ proposal }) => {
 
   const getStatusStyle = () => {
     switch (status) {
-      case "Active": return "bg-yellow-500/10 text-yellow-400 border-yellow-500/30 shadow-[0_0_15px_rgba(234,179,8,0.2)]";
-      case "Passed": return "bg-green-500/10 text-green-400 border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.2)]";
-      case "Rejected": return "bg-red-500/10 text-red-400 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.2)]";
-      default: return "bg-gray-500/10 text-gray-400 border-gray-500/30";
+      case "Active":
+        return "bg-yellow-500/10 text-yellow-400 border-yellow-500/30 shadow-[0_0_15px_rgba(234,179,8,0.2)]";
+      case "Passed":
+        return "bg-green-500/10 text-green-400 border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.2)]";
+      case "Rejected":
+        return "bg-red-500/10 text-red-400 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.2)]";
+      default:
+        return "bg-gray-500/10 text-gray-400 border-gray-500/30";
     }
   };
 
@@ -61,23 +86,54 @@ const ProposalCard = ({ proposal }) => {
               #{proposal.id}
             </div>
             <div>
-              <h3 className="font-bold text-lg text-white group-hover:text-blue-400 transition-colors">Governance Proposal</h3>
+              <h3 className="font-bold text-lg text-white group-hover:text-blue-400 transition-colors">
+                Governance Proposal
+              </h3>
               <p className="text-xs text-gray-500 font-mono flex items-center gap-1">
                 <ExternalLink className="w-3 h-3" />
-                Target: {proposal.target.slice(0, 6)}...{proposal.target.slice(-4)}
+                Target: {proposal.target.slice(0, 6)}...
+                {proposal.target.slice(-4)}
               </p>
             </div>
           </div>
-          <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border ${getStatusStyle()}`}>
+          <span
+            className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border ${getStatusStyle()}`}
+          >
             {status}
           </span>
         </div>
 
         {/* Description/Action */}
-        <div className="mb-8 p-4 bg-black/30 rounded-2xl border border-white/5">
-          <p className="text-sm text-gray-400 font-light leading-relaxed italic">
-            "This proposal aims to {proposal.description || "update core protocol parameters to enhance efficiency and security"}"
-          </p>
+        <div className="mb-8 p-4 bg-black/30 rounded-2xl border border-white/5 space-y-2">
+          {decodedAction ? (
+            <>
+              <p className="text-[10px] uppercase tracking-widest font-black text-blue-400">
+                On-chain Action
+              </p>
+
+              <p className="text-sm font-semibold text-white">
+                {decodedAction.name === "pause" &&
+                  "Pause the TrustForge protocol"}
+                {decodedAction.name === "unpause" &&
+                  "Unpause the TrustForge protocol"}
+                {!["pause", "unpause"].includes(decodedAction.name) &&
+                  `Execute ${decodedAction.name}()`}
+              </p>
+
+              <p className="text-xs text-gray-400 italic">
+                {proposal.description}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">
+                Unknown Action
+              </p>
+              <p className="text-sm text-gray-400 italic">
+                {proposal.description}
+              </p>
+            </>
+          )}
         </div>
 
         {/* Voting Progress */}
@@ -87,14 +143,18 @@ const ProposalCard = ({ proposal }) => {
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <span className="text-gray-400">Yes Votes</span>
             </div>
-            <span className="font-black text-green-400">{proposal.yesVotes} TFX</span>
+            <span className="font-black text-green-400">
+              {proposal.yesVotes} TFX
+            </span>
           </div>
           <div className="flex justify-between text-sm">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-red-500 rounded-full"></div>
               <span className="text-gray-400">No Votes</span>
             </div>
-            <span className="font-black text-red-400">{proposal.noVotes} TFX</span>
+            <span className="font-black text-red-400">
+              {proposal.noVotes} TFX
+            </span>
           </div>
         </div>
 
@@ -108,7 +168,7 @@ const ProposalCard = ({ proposal }) => {
                 : "Round Concluded"}
             </span>
           </div>
-          <TrendingUp  className="w-4 h-4 opacity-50" />
+          <TrendingUp className="w-4 h-4 opacity-50" />
         </div>
       </div>
 
