@@ -3,6 +3,7 @@ import { useDAO } from "../context/DAOContext";
 import { useBlockchain } from "../context/BlockchainContext";
 import ProposalCard from "../components/ProposalCard";
 import CreateProposal from "../components/CreateProposal";
+import Navbar from "../components/navbar";
 
 const DAO = () => {
   const {
@@ -37,6 +38,8 @@ const DAO = () => {
   }, [account, dao]); // re-run when wallet or DAO changes
 
   return (
+    <>
+    <Navbar></Navbar>
     <div className="max-w-5xl mx-auto p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
@@ -82,6 +85,7 @@ const DAO = () => {
         />
       )}
     </div>
+    </>
   );
 };
 

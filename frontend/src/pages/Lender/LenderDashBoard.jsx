@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useBlockchain, RiskPool } from '../../context/BlockchainContext';
+import Navbar from '../../components/navbar';
 
 const LenderDashboard = () => {
   const {
@@ -193,18 +194,18 @@ const LenderDashboard = () => {
   const formatNumber = (num, minDecimals = 2, maxDecimals = 8) => {
     const n = parseFloat(num);
     if (isNaN(n)) return '0.00';
-    
+
     // If number is very small but not zero, show more decimals
     if (n > 0 && n < 0.01) {
-      return n.toLocaleString('en-US', { 
-        minimumFractionDigits: 6, 
-        maximumFractionDigits: maxDecimals 
+      return n.toLocaleString('en-US', {
+        minimumFractionDigits: 6,
+        maximumFractionDigits: maxDecimals
       });
     }
-    
-    return n.toLocaleString('en-US', { 
-      minimumFractionDigits: minDecimals, 
-      maximumFractionDigits: maxDecimals 
+
+    return n.toLocaleString('en-US', {
+      minimumFractionDigits: minDecimals,
+      maximumFractionDigits: maxDecimals
     });
   };
 
@@ -277,8 +278,10 @@ const LenderDashboard = () => {
     );
   }
 
-  return (
+  return (<>
+    <Navbar></Navbar>
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-8">
+
       <div className="max-w-7xl mx-auto">
         {/* Header with Debug Toggle */}
         <div className="mb-8 flex items-center justify-between">
@@ -299,7 +302,7 @@ const LenderDashboard = () => {
           <div className="mb-6 bg-gray-900 text-green-400 rounded-lg p-6 font-mono text-sm overflow-x-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-bold text-lg">🔍 Debug Information</h3>
-              <button 
+              <button
                 onClick={loadData}
                 className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
               >
@@ -313,31 +316,31 @@ const LenderDashboard = () => {
               <div><span className="text-gray-400">High Risk Pending:</span> {lenderInfo.pendingInterestHigh} TFX</div>
               <div><span className="text-gray-400">Total Pending:</span> {getTotalPendingInterest()} TFX</div>
               <div><span className="text-gray-400">Total Earned:</span> {lenderInfo.totalInterestEarned} TFX</div>
-              
+
               <div className="pt-3 mt-3 border-t border-gray-700">
                 <div className="text-yellow-300 font-bold">💰 Deposit Data:</div>
                 <div><span className="text-gray-400">Low Risk Deposit:</span> {lenderInfo.depositedLowRisk} TFX</div>
                 <div><span className="text-gray-400">Med Risk Deposit:</span> {lenderInfo.depositedMedRisk} TFX</div>
                 <div><span className="text-gray-400">High Risk Deposit:</span> {lenderInfo.depositedHighRisk} TFX</div>
               </div>
-              
+
               <div className="pt-3 mt-3 border-t border-gray-700">
                 <div className="text-yellow-300 font-bold">📈 Interest Rates (Basis Points):</div>
                 {interestRates.lowRisk && (
                   <div>
-                    <span className="text-gray-400">Low Risk:</span> {interestRates.lowRisk.baseRate} - {interestRates.lowRisk.maxRate} BP 
+                    <span className="text-gray-400">Low Risk:</span> {interestRates.lowRisk.baseRate} - {interestRates.lowRisk.maxRate} BP
                     <span className="text-green-400"> ({formatPercentage(interestRates.lowRisk.baseRate)} - {formatPercentage(interestRates.lowRisk.maxRate)})</span>
                   </div>
                 )}
                 {interestRates.medRisk && (
                   <div>
-                    <span className="text-gray-400">Med Risk:</span> {interestRates.medRisk.baseRate} - {interestRates.medRisk.maxRate} BP 
+                    <span className="text-gray-400">Med Risk:</span> {interestRates.medRisk.baseRate} - {interestRates.medRisk.maxRate} BP
                     <span className="text-yellow-400"> ({formatPercentage(interestRates.medRisk.baseRate)} - {formatPercentage(interestRates.medRisk.maxRate)})</span>
                   </div>
                 )}
                 {interestRates.highRisk && (
                   <div>
-                    <span className="text-gray-400">High Risk:</span> {interestRates.highRisk.baseRate} - {interestRates.highRisk.maxRate} BP 
+                    <span className="text-gray-400">High Risk:</span> {interestRates.highRisk.baseRate} - {interestRates.highRisk.maxRate} BP
                     <span className="text-red-400"> ({formatPercentage(interestRates.highRisk.baseRate)} - {formatPercentage(interestRates.highRisk.maxRate)})</span>
                   </div>
                 )}
@@ -412,7 +415,7 @@ const LenderDashboard = () => {
             </div>
             <div className="text-2xl font-bold text-gray-800">{formatNumber(tfxBalance)} TFX</div>
           </div>
-          
+
           <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm text-gray-500">Total Deposited</div>
@@ -424,7 +427,7 @@ const LenderDashboard = () => {
             </div>
             <div className="text-2xl font-bold text-blue-600">{formatNumber(getTotalDeposited())} TFX</div>
           </div>
-          
+
           <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm text-gray-500">Pending Interest</div>
@@ -443,7 +446,7 @@ const LenderDashboard = () => {
               </div>
             )}
           </div>
-          
+
           <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm text-gray-500">Total Earned</div>
@@ -1072,6 +1075,7 @@ const LenderDashboard = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

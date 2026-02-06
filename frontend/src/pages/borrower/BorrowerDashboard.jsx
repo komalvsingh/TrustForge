@@ -237,7 +237,6 @@ const BorrowerDashboard = () => {
                   <th className="p-2 text-left">Interest</th>
                   <th className="p-2 text-left">Total</th>
                   <th className="p-2 text-left">Pool</th>
-                  <th className="p-2 text-left">Status</th>
                   <th className="p-2 text-left">Duration</th>
                   <th className="p-2 text-left">Due Date</th>
                 </tr>
@@ -251,9 +250,9 @@ const BorrowerDashboard = () => {
                     <td className="p-2">
                       <span
                         className={`px-2 py-1 rounded text-xs ${
-                          h.riskPool === 0
+                          Number(h.riskPool) === 0
                             ? "bg-green-100 text-green-800"
-                            : h.riskPool === 1
+                            : Number(h.riskPool) === 1
                             ? "bg-yellow-100 text-yellow-800"
                             : "bg-red-100 text-red-800"
                         }`}
@@ -261,19 +260,7 @@ const BorrowerDashboard = () => {
                         {poolMap[h.riskPool]}
                       </span>
                     </td>
-                    <td className="p-2">
-                      <span
-                        className={`px-2 py-1 rounded text-xs ${
-                          h.status === 1
-                            ? "bg-green-100 text-green-800"
-                            : h.status === 2
-                            ? "bg-red-100 text-red-800"
-                            : "bg-blue-100 text-blue-800"
-                        }`}
-                      >
-                        {statusMap[h.status]}
-                      </span>
-                    </td>
+
                     <td className="p-2">
                       {(Number(h.duration) / 86400).toFixed(0)} days
                     </td>

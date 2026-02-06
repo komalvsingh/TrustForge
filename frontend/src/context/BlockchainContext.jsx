@@ -619,26 +619,41 @@ export const BlockchainProvider = ({ children }) => {
    * Get active loan details
    */
   const getActiveLoan = async (address) => {
-    if (!trustForge) return null;
-    try {
-      const userAddress = address || account;
-      const loan = await trustForge.getActiveLoan(userAddress);
-      return {
-        principal: formatEther(loan.principal),
-        interestAmount: formatEther(loan.interestAmount),
-        totalRepayment: formatEther(loan.totalRepayment),
-        dueDate: loan.dueDate.toString(),
-        duration: loan.duration.toString(),
-        status: loan.status, // 0=ACTIVE, 1=REPAID, 2=DEFAULTED
-        pool: loan.pool, // 0=LOW, 1=MED, 2=HIGH
-        riskPool: loan.pool, // Alias for consistency
-        isOverdue: loan.isOverdue,
-      };
-    } catch (error) {
-      console.error("Error getting active loan:", error);
-      return null;
+  if (!trustForge) return null;
+
+  try {
+    const userAddress = address || account;
+    const loan = await trustForge.getActiveLoan(userAddress);
+
+    const principal = formatEther(loan.principal);
+    const interestAmount = formatEther(loan.interestAmount);
+    const totalRepayment = formatEther(loan.totalRepayment);
+
+    // ===== DERIVED STATUS FIX =====
+    let derivedStatus = Number(loan.status);
+
+    // If principal is 0 → no active loan exists → treat as REPAID
+    if (Number(principal) === 0) {
+      derivedStatus = LoanStatus.REPAID;
     }
-  };
+
+    return {
+  principal: formatEther(loan[0]),
+  interestAmount: formatEther(loan[1]),
+  totalRepayment: formatEther(loan[2]),
+  dueDate: loan[3].toString(),
+  duration: loan[4].toString(),
+  status: Number(loan[5]),
+  pool: Number(loan[6]),
+  isOverdue: loan[7],
+};
+
+  } catch (error) {
+    console.error("Error getting active loan:", error);
+    return null;
+  }
+};
+
 
   /**
    * Get wallet maturity information
@@ -748,16 +763,20 @@ export const BlockchainProvider = ({ children }) => {
     try {
       const userAddress = address || account;
       const history = await trustForge.getLoanHistory(userAddress);
-      return history.map(loan => ({
-        principal: formatEther(loan.principal),
-        interestAmount: formatEther(loan.interestAmount),
-        totalRepayment: formatEther(loan.totalRepayment),
-        startTime: loan.startTime.toString(),
-        dueDate: loan.dueDate.toString(),
-        duration: loan.duration.toString(),
-        status: loan.status, // 0=ACTIVE, 1=REPAID, 2=DEFAULTED
-        riskPool: loan.riskPool, // 0=LOW, 1=MED, 2=HIGH
-      }));
+      return history.map((loan) => ({
+  principal: formatEther(loan[1]),
+  interestAmount: formatEther(loan[2]),
+  totalRepayment: formatEther(loan[3]),
+  startTime: loan[4].toString(),
+  dueDate: loan[5].toString(),
+  duration: loan[6].toString(),
+
+  // THIS IS THE REAL FIX
+  status: Number(loan[7]),
+  riskPool: Number(loan[8]),
+}));
+
+
     } catch (error) {
       console.error("Error getting loan history:", error);
       return [];

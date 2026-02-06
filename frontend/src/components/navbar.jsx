@@ -2,7 +2,7 @@ import { useBlockchain } from "../context/BlockchainContext";
 import { useUser } from "../context/usercontext";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Wallet, LogOut, Menu, X, TrendingUp, HandCoins, Home, LayoutDashboard, User } from "lucide-react";
+import { Wallet, LogOut, Menu, X, TrendingUp, HandCoins, Home, LayoutDashboard, User, Coins } from "lucide-react";
 
 const Navbar = () => {
   const { account, connectWallet, disconnectWallet } = useBlockchain();
@@ -31,6 +31,7 @@ const Navbar = () => {
     { path: "/", label: "Home", icon: Home },
     { path: "/lender", label: "Lend", icon: TrendingUp },
     { path: "/borrow", label: "Borrow", icon: HandCoins },
+    { path: "/dao", label: "DAO", icon: Coins },
 
   ];
 
