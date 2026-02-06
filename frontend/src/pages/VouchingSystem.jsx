@@ -1,6 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useBlockchain } from '../context/BlockchainContext';
 import Navbar from '../components/navbar';
+import {
+  Users,
+  UserPlus,
+  Search,
+  ShieldCheck,
+  Award,
+  TrendingUp,
+  Info,
+  AlertTriangle,
+  LayoutGrid,
+  Zap,
+  ArrowUpRight,
+  UserCheck,
+  ShieldAlert,
+  Fingerprint,
+  CheckCircle,
+  HelpCircle
+} from "lucide-react";
 
 const VouchingSystem = () => {
   const {
@@ -215,104 +233,162 @@ const VouchingSystem = () => {
 
   if (!account) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full mx-auto mb-6 flex items-center justify-center">
-            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
+      <div className="min-h-screen bg-black relative overflow-hidden font-inter text-white flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
+        <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-blue-500/20 rounded-full blur-[120px] animate-float"></div>
+
+        <div className="relative group max-w-md w-full">
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+          <div className="relative bg-black/40 backdrop-blur-2xl border border-white/10 rounded-3xl p-10 text-center">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl mx-auto mb-8 flex items-center justify-center border border-white/5 group-hover:scale-110 transition-transform duration-500">
+              <Users className="w-12 h-12 text-blue-400" />
+            </div>
+            <h2 className="text-3xl font-black mb-4 tracking-tight">Access TrustForge</h2>
+            <p className="text-gray-400 mb-10 font-light leading-relaxed">
+              Connect your decentralized identity to access the social trust and vouching layer.
+            </p>
+            <button
+              onClick={connectWallet}
+              disabled={loading}
+              className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl font-black text-white shadow-lg hover:shadow-blue-500/40 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50"
+            >
+              {loading ? "AUTHENTICATING..." : "CONNECT WALLET"}
+            </button>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Connect Your Wallet</h2>
-          <p className="text-gray-600 mb-6">Please connect your wallet to access the Vouching System</p>
-          <button
-            onClick={connectWallet}
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-purple-600 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Connecting...' : 'Connect Wallet'}
-          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <>
-    <Navbar></Navbar>
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Vouching System</h1>
-          <p className="text-gray-600">Build trust through social connections and vouching</p>
+    <div className="min-h-screen bg-black relative overflow-hidden font-inter text-white">
+      {/* Animated Background Grid */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
+
+      {/* Gradient Orbs */}
+      <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-blue-500/20 rounded-full blur-[120px] animate-float"></div>
+      <div className="absolute bottom-0 left-1/4 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px] animate-float-delayed"></div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[100px] animate-pulse-slow"></div>
+
+      <Navbar />
+
+      <main className="relative max-w-7xl mx-auto px-6 py-12">
+        {/* Header Section */}
+        <div className="mb-12 animate-fade-in-down">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
+              <Users className="w-5 h-5 text-blue-400" />
+            </div>
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight">Vouching System</h1>
+          </div>
+          <p className="text-gray-400 text-lg font-light leading-relaxed max-w-2xl">
+            Build decentralized trust through social connections. Endorse trusted partners and grow your collective reputation.
+          </p>
         </div>
 
-        {/* Message Alert */}
+        {/* Status Message */}
         {message.text && (
-          <div className={`mb-6 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-            {message.text}
+          <div className={`mb-10 p-5 rounded-2xl backdrop-blur-xl border flex items-center gap-4 animate-fade-in ${message.type === 'success'
+            ? 'bg-green-500/10 border-green-500/20 text-green-400'
+            : 'bg-red-500/10 border-red-500/20 text-red-400'
+            }`}>
+            {message.type === 'success' ? <CheckCircle className="w-6 h-6" /> : <ShieldAlert className="w-6 h-6" />}
+            <span className="font-medium">{message.text}</span>
           </div>
         )}
 
         {/* Username Registration Section */}
         {!hasUsername && (
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border-2 border-purple-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+          <div className="relative group mb-12 animate-fade-in-up animation-delay-200">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+            <div className="relative bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-3xl p-8 md:p-12">
+              <div className="flex flex-col md:flex-row items-center gap-10">
+                <div className="w-24 h-24 bg-blue-500/20 rounded-3xl flex items-center justify-center border border-blue-500/30 shrink-0">
+                  <Fingerprint className="w-12 h-12 text-blue-400" />
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                  <h2 className="text-3xl font-black mb-3">Claim Your Identity</h2>
+                  <p className="text-gray-400 font-light mb-8 max-w-xl">
+                    Register a unique TrustForge handle to participate in governance and social trust building.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">@</div>
+                      <input
+                        type="text"
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        placeholder="Enter username"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-10 pr-4 text-white placeholder:text-gray-600 focus:border-blue-500/50 focus:outline-none transition-all font-medium"
+                        maxLength={20}
+                      />
+                    </div>
+                    <button
+                      onClick={handleRegisterUsername}
+                      disabled={txLoading || !newUsername}
+                      className="px-10 py-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl font-black text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:scale-[1.02] transition-all disabled:opacity-50"
+                    >
+                      {txLoading ? 'REGISTERING...' : 'REGISTER IDENTITY'}
+                    </button>
+                  </div>
+                  <p className="mt-4 text-xs text-gray-500 font-mono flex items-center gap-2 justify-center md:justify-start uppercase tracking-widest">
+                    <Info className="w-3 h-3" />
+                    Lowercase letters, numbers, and underscores only
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800">Register Your Username</h2>
-                <p className="text-gray-600">You need a username to participate in the vouching system</p>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <input
-                type="text"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value)}
-                placeholder="Enter username (3-20 characters)"
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                maxLength={20}
-              />
-              <button
-                onClick={handleRegisterUsername}
-                disabled={txLoading || !newUsername}
-                className="bg-gradient-to-r from-purple-500 to-pink-600 text-white py-3 px-8 rounded-lg font-semibold hover:from-purple-600 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {txLoading ? 'Registering...' : 'Register'}
-              </button>
-            </div>
-            <div className="mt-3 text-sm text-gray-500">
-              Only letters, numbers, and underscores allowed
             </div>
           </div>
         )}
 
         {/* My Profile Card */}
         {hasUsername && myProfile && (
-          <div className="bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl shadow-lg p-8 mb-8 text-white">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <div className="text-sm opacity-90 mb-1">Your Username</div>
-                <div className="text-3xl font-bold">@{myProfile.username}</div>
-                <div className="text-sm opacity-75 mt-1">{formatAddress(account)}</div>
-              </div>
-              <div>
-                <div className="text-sm opacity-90 mb-1">Trust Score</div>
-                <div className="text-3xl font-bold">{myProfile.trustScore}</div>
-                <div className="text-sm opacity-75 mt-1">{getRiskPoolName(myProfile.assignedPool)} Pool</div>
-              </div>
-              <div>
-                <div className="text-sm opacity-90 mb-1">Vouching Stats</div>
-                <div className="text-lg font-semibold">
-                  {vouchersForMe.length} vouching for you
+          <div className="relative group mb-12 animate-fade-in-up animation-delay-200">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+            <div className="relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-3xl border border-white/10 rounded-3xl p-10">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:divide-x divide-white/10">
+                <div className="flex md:block items-center gap-6">
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center border border-white/10 mb-4 group-hover:scale-110 transition-transform duration-500">
+                    <UserCheck className="w-10 h-10 text-blue-400" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-blue-400 font-black uppercase tracking-[0.2em] mb-1">Your Identity</div>
+                    <div className="text-4xl font-black tracking-tight mb-2">@{myProfile.username}</div>
+                    <div className="text-xs text-gray-500 font-mono tracking-tighter">{formatAddress(account)}</div>
+                  </div>
                 </div>
-                <div className="text-lg font-semibold">
-                  {myVouches.length} you vouched for
+
+                <div className="flex flex-col justify-center items-center md:items-start md:pl-10">
+                  <div className="text-[10px] text-purple-400 font-black uppercase tracking-[0.2em] mb-1 text-center md:text-left">Trust Profile</div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-5xl font-black text-white">{myProfile.trustScore}</div>
+                    <div className="flex flex-col">
+                      <div className={`text-xs font-black uppercase tracking-widest ${getRiskPoolColor(myProfile.assignedPool)}`}>
+                        {getRiskPoolName(myProfile.assignedPool)}
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium">Global Ranking</div>
+                    </div>
+                  </div>
+                  <div className="w-full mt-4 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full transition-all duration-1000"
+                      style={{ width: `${(myProfile.trustScore / 1000) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col justify-center items-center md:items-start md:pl-10">
+                  <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mb-4 text-center md:text-left">Social Connections</div>
+                  <div className="flex gap-8">
+                    <div className="text-center md:text-left">
+                      <div className="text-2xl font-black text-white">{vouchersForMe.length}</div>
+                      <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Vouchers</div>
+                    </div>
+                    <div className="text-center md:text-left">
+                      <div className="text-2xl font-black text-white">{myVouches.length}</div>
+                      <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Vouchees</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -322,444 +398,385 @@ const VouchingSystem = () => {
         {hasUsername && (
           <>
             {/* Tabs */}
-            <div className="bg-white rounded-xl shadow-lg mb-8">
-              <div className="border-b border-gray-200">
-                <div className="flex">
+            <div className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-3xl overflow-hidden mb-12 animate-fade-in-up animation-delay-400">
+              <div className="flex border-b border-white/10 p-2">
+                {[
+                  { id: 'vouch', label: 'Endorse', icon: UserPlus },
+                  { id: 'vouchers', label: 'Admirers', icon: Award },
+                  { id: 'vouchees', label: 'Portfolio', icon: TrendingUp },
+                  { id: 'info', label: 'Protocol', icon: Info },
+                ].map((tab) => (
                   <button
-                    onClick={() => setActiveTab('vouch')}
-                    className={`py-4 px-6 font-semibold transition-colors ${
-                      activeTab === 'vouch'
-                        ? 'border-b-2 border-purple-500 text-purple-600'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-sm transition-all duration-300 ${activeTab === tab.id
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                      }`}
                   >
-                    Vouch for Others
+                    <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'animate-pulse' : ''}`} />
+                    <span className="hidden md:inline uppercase tracking-widest">{tab.label}</span>
                   </button>
-                  <button
-                    onClick={() => setActiveTab('vouchers')}
-                    className={`py-4 px-6 font-semibold transition-colors ${
-                      activeTab === 'vouchers'
-                        ? 'border-b-2 border-purple-500 text-purple-600'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    People Vouching for Me ({vouchersForMe.length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('vouchees')}
-                    className={`py-4 px-6 font-semibold transition-colors ${
-                      activeTab === 'vouchees'
-                        ? 'border-b-2 border-purple-500 text-purple-600'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    People I Vouch For ({myVouches.length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('info')}
-                    className={`py-4 px-6 font-semibold transition-colors ${
-                      activeTab === 'info'
-                        ? 'border-b-2 border-purple-500 text-purple-600'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Info
-                  </button>
-                </div>
+                ))}
               </div>
 
-              {/* Vouch for Others Tab */}
-              {activeTab === 'vouch' && (
-                <div className="p-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Vouch for Someone</h2>
+              {/* Tab Content */}
+              <div className="p-8 md:p-12">
+                {/* Vouch for Others Tab */}
+                {activeTab === 'vouch' && (
+                  <div className="animate-fade-in">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+                      <div>
+                        <h2 className="text-3xl font-black mb-2">Social Endorsement</h2>
+                        <p className="text-gray-400 font-light">Search the network to vouch for trusted participants.</p>
+                      </div>
+                      <div className="px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400 text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                        <Zap className="w-4 h-4" />
+                        Live Network Search
+                      </div>
+                    </div>
 
-                  {/* Search Section */}
-                  <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4">Search User by Username</h3>
-                    <div className="flex gap-4">
+                    <div className="relative group max-w-2xl mb-12">
+                      <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none text-gray-500 group-focus-within:text-blue-400 transition-colors">
+                        <Search className="w-6 h-6" />
+                      </div>
                       <input
                         type="text"
                         value={searchUsername}
                         onChange={(e) => setSearchUsername(e.target.value)}
-                        placeholder="Enter username to search..."
-                        className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Search by username..."
+                        className="w-full bg-white/5 border border-white/10 rounded-3xl py-6 pl-16 pr-32 text-white text-lg placeholder:text-gray-600 focus:border-blue-500/50 focus:outline-none transition-all font-light"
                         onKeyPress={(e) => e.key === 'Enter' && handleSearchUser()}
                       />
                       <button
                         onClick={handleSearchUser}
                         disabled={txLoading || !searchUsername}
-                        className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 px-8 rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 border border-white/10 px-8 py-3 rounded-2xl font-black text-sm transition-all disabled:opacity-50"
                       >
-                        {txLoading ? 'Searching...' : 'Search'}
+                        {txLoading ? '...' : 'FIND USER'}
                       </button>
                     </div>
-                  </div>
 
-                  {/* Search Results */}
-                  {searchedProfile && (
-                    <div className="bg-white border-2 border-purple-200 rounded-xl p-6">
-                      <div className="flex items-start justify-between mb-6">
-                        <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                            {searchedProfile.username.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="text-2xl font-bold text-gray-800">@{searchedProfile.username}</div>
-                            <div className="text-sm text-gray-500">{formatAddress(searchedProfile.address)}</div>
-                          </div>
-                        </div>
-                        {!searchedProfile.alreadyVouched && searchedProfile.address.toLowerCase() !== account.toLowerCase() && (
-                          <button
-                            onClick={handleVouchForUser}
-                            disabled={txLoading}
-                            className="bg-gradient-to-r from-purple-500 to-pink-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-purple-600 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            {txLoading ? 'Vouching...' : 'Vouch for User'}
-                          </button>
-                        )}
-                        {searchedProfile.alreadyVouched && (
-                          <div className="bg-green-100 text-green-800 py-3 px-6 rounded-lg font-semibold flex items-center gap-2">
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            Already Vouched
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className={`p-4 rounded-lg border-2 ${getTrustScoreBg(searchedProfile.trustScore)}`}>
-                          <div className="text-sm text-gray-600 mb-1">Trust Score</div>
-                          <div className={`text-2xl font-bold ${getTrustScoreColor(searchedProfile.trustScore)}`}>
-                            {searchedProfile.trustScore}
-                          </div>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-                          <div className="text-sm text-gray-600 mb-1">Risk Pool</div>
-                          <div className={`text-lg font-bold ${getRiskPoolColor(searchedProfile.assignedPool)}`}>
-                            {getRiskPoolName(searchedProfile.assignedPool)}
-                          </div>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-                          <div className="text-sm text-gray-600 mb-1">Total Loans</div>
-                          <div className="text-2xl font-bold text-gray-800">{searchedProfile.totalLoansTaken}</div>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-                          <div className="text-sm text-gray-600 mb-1">Repayments</div>
-                          <div className="text-2xl font-bold text-green-600">{searchedProfile.successfulRepayments}</div>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-                          <div className="text-sm text-gray-600 mb-1">Defaults</div>
-                          <div className="text-2xl font-bold text-red-600">{searchedProfile.defaults}</div>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-                          <div className="text-sm text-gray-600 mb-1">Active Loan</div>
-                          <div className="text-lg font-bold text-gray-800">
-                            {searchedProfile.hasActiveLoan ? 'Yes' : 'No'}
-                          </div>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-                          <div className="text-sm text-gray-600 mb-1">Maturity Level</div>
-                          <div className="text-2xl font-bold text-blue-600">{searchedProfile.maturityLevel}</div>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-                          <div className="text-sm text-gray-600 mb-1">Max Borrow</div>
-                          <div className="text-lg font-bold text-purple-600">{parseFloat(searchedProfile.maxBorrowingLimit).toFixed(0)} TFX</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Vouchers Tab */}
-              {activeTab === 'vouchers' && (
-                <div className="p-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">People Vouching for Me</h2>
-
-                  {vouchersDetails.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="w-24 h-24 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                        <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-semibold text-gray-600 mb-2">No one is vouching for you yet</h3>
-                      <p className="text-gray-500">Build trust by completing loans and contributing to the community</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {vouchersDetails.map((voucher, index) => (
-                        <div key={index} className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg p-6">
-                          <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xl font-bold">
-                              {voucher.username.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <div className="text-lg font-bold text-gray-800">@{voucher.username}</div>
-                              <div className="text-sm text-gray-500">{formatAddress(voucher.address)}</div>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <div className="text-gray-600">Trust Score</div>
-                              <div className={`font-bold ${getTrustScoreColor(voucher.trustScore)}`}>{voucher.trustScore}</div>
-                            </div>
-                            <div>
-                              <div className="text-gray-600">Risk Pool</div>
-                              <div className={`font-bold ${getRiskPoolColor(voucher.assignedPool)}`}>{getRiskPoolName(voucher.assignedPool)}</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Vouchees Tab */}
-              {activeTab === 'vouchees' && (
-                <div className="p-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">People I Vouch For</h2>
-
-                  {constants && (
-                    <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mb-6">
-                      <div className="flex items-start gap-2">
-                        <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        <div>
-                          <div className="font-semibold text-yellow-800 mb-1">Vouching Penalty Warning</div>
-                          <div className="text-sm text-yellow-700">
-                            If someone you vouch for defaults on a loan, your trust score will decrease by {constants.vouchPenaltyOnDefault} points.
-                            Only vouch for people you trust!
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {voucheesDetails.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="w-24 h-24 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                        <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-semibold text-gray-600 mb-2">You haven't vouched for anyone yet</h3>
-                      <p className="text-gray-500">Search for users and vouch for people you trust</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {voucheesDetails.map((vouchee, index) => (
-                        <div key={index} className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6">
-                          <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xl font-bold">
-                              {vouchee.username.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <div className="text-lg font-bold text-gray-800">@{vouchee.username}</div>
-                              <div className="text-sm text-gray-500">{formatAddress(vouchee.address)}</div>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-3 text-sm">
-                            <div>
-                              <div className="text-gray-600">Trust Score</div>
-                              <div className={`font-bold ${getTrustScoreColor(vouchee.trustScore)}`}>{vouchee.trustScore}</div>
-                            </div>
-                            <div>
-                              <div className="text-gray-600">Repayments</div>
-                              <div className="font-bold text-green-600">{vouchee.successfulRepayments}</div>
-                            </div>
-                            <div>
-                              <div className="text-gray-600">Defaults</div>
-                              <div className="font-bold text-red-600">{vouchee.defaults}</div>
-                            </div>
-                          </div>
-                          {vouchee.hasActiveLoan && (
-                            <div className="mt-3 pt-3 border-t border-blue-200">
-                              <div className="flex items-center gap-2 text-sm text-blue-700">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                </svg>
-                                Currently has an active loan
+                    {/* Search Results */}
+                    {searchedProfile && (
+                      <div className="relative group animate-fade-in-up">
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-[2.5rem] blur opacity-10"></div>
+                        <div className="relative bg-black/40 border border-white/10 rounded-[2.5rem] p-8 md:p-12">
+                          <div className="flex flex-col md:flex-row items-center justify-between gap-10 mb-12">
+                            <div className="flex items-center gap-6">
+                              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-blue-500/20">
+                                {searchedProfile.username.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="text-3xl font-black text-white mb-1">@{searchedProfile.username}</div>
+                                <div className="text-gray-500 font-mono text-sm tracking-tighter">{formatAddress(searchedProfile.address)}</div>
                               </div>
                             </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
 
-              {/* Info Tab */}
-              {activeTab === 'info' && (
-                <div className="p-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">How Vouching Works</h2>
+                            {!searchedProfile.alreadyVouched && searchedProfile.address.toLowerCase() !== account.toLowerCase() && (
+                              <button
+                                onClick={handleVouchForUser}
+                                disabled={txLoading}
+                                className="group/vouch relative px-10 py-5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl font-black text-white flex items-center gap-3 hover:shadow-[0_0_30px_rgba(59,130,246,0.3)] hover:scale-[1.05] transition-all"
+                              >
+                                <UserPlus className="w-5 h-5 group-hover/vouch:rotate-12 transition-transform" />
+                                VOUCH FOR USER
+                              </button>
+                            )}
 
-                  <div className="space-y-6">
-                    {/* What is Vouching */}
-                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6">
-                      <h3 className="text-xl font-bold text-gray-800 mb-3">What is Vouching?</h3>
-                      <p className="text-gray-700 mb-3">
-                        Vouching is a social trust mechanism where you endorse other users based on your trust in their ability to repay loans.
-                        It's similar to a professional reference or character reference in traditional finance.
-                      </p>
-                      <p className="text-gray-700">
-                        When you vouch for someone, you're putting your reputation on the line to support theirs. This helps new users build
-                        trust in the system and allows the community to self-regulate.
-                      </p>
-                    </div>
+                            {searchedProfile.alreadyVouched && (
+                              <div className="px-10 py-5 bg-green-500/10 border border-green-500/30 rounded-2xl text-green-400 font-black flex items-center gap-3">
+                                <CheckCircle className="w-5 h-5" />
+                                ALREADY ENDORSED
+                              </div>
+                            )}
+                          </div>
 
-                    {/* Benefits */}
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6">
-                      <h3 className="text-xl font-bold text-gray-800 mb-3">Benefits of Being Vouched For</h3>
-                      <ul className="space-y-2 text-gray-700">
-                        <li className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          <span>Increased trust score and credibility in the system</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          <span>Better loan terms and higher borrowing limits</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          <span>Social proof of trustworthiness</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          <span>Helps new users get started in the lending ecosystem</span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    {/* Risks */}
-                    <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg p-6">
-                      <h3 className="text-xl font-bold text-gray-800 mb-3">⚠️ Risks of Vouching</h3>
-                      {constants && (
-                        <div className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg">
-                          <div className="font-bold text-red-800 mb-2">Important: Vouching Penalty</div>
-                          <div className="text-red-700">
-                            If someone you vouch for defaults on their loan, your trust score will be reduced by{' '}
-                            <span className="font-bold">{constants.vouchPenaltyOnDefault} points</span>.
-                          </div>
-                        </div>
-                      )}
-                      <ul className="space-y-2 text-gray-700">
-                        <li className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                          </svg>
-                          <span>Your trust score decreases if they default</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                          </svg>
-                          <span>Your reputation is tied to their behavior</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                          </svg>
-                          <span>Only vouch for people you genuinely trust</span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    {/* Best Practices */}
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6">
-                      <h3 className="text-xl font-bold text-gray-800 mb-3">Best Practices</h3>
-                      <ul className="space-y-2 text-gray-700">
-                        <li className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                          <span>Review the user's loan history before vouching</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                          <span>Check their trust score and successful repayments</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                          <span>Only vouch for users you know or have interacted with</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                          <span>Be selective - quality over quantity</span>
-                        </li>
-                        {constants && (
-                          <li className="flex items-start gap-2">
-                            <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                            </svg>
-                            <span>Maximum {constants.maxVouchesPerUser} vouches per user</span>
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-
-                    {/* System Constants */}
-                    {constants && (
-                      <div className="bg-gray-50 rounded-lg p-6">
-                        <h3 className="text-xl font-bold text-gray-800 mb-3">System Parameters</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          <div>
-                            <div className="text-sm text-gray-600">Vouch Penalty on Default</div>
-                            <div className="text-xl font-bold text-red-600">{constants.vouchPenaltyOnDefault}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-gray-600">Max Vouches Per User</div>
-                            <div className="text-xl font-bold text-blue-600">{constants.maxVouchesPerUser}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-gray-600">Trust Increase (Repay)</div>
-                            <div className="text-xl font-bold text-green-600">+{constants.trustIncreasePerRepayment}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-gray-600">Trust Decrease (Default)</div>
-                            <div className="text-xl font-bold text-red-600">-{constants.trustDecreaseOnDefault}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-gray-600">Initial Trust Score</div>
-                            <div className="text-xl font-bold text-gray-800">{constants.initialTrustScore}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-gray-600">Max Trust Score</div>
-                            <div className="text-xl font-bold text-purple-600">{constants.maxTrustScore}</div>
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                            {[
+                              { label: 'Trust Score', value: searchedProfile.trustScore, color: getTrustScoreColor(searchedProfile.trustScore), icon: ShieldCheck },
+                              { label: 'Risk Rating', value: getRiskPoolName(searchedProfile.assignedPool), color: getRiskPoolColor(searchedProfile.assignedPool), icon: LayoutGrid },
+                              { label: 'Total Loans', value: searchedProfile.totalLoansTaken, color: 'text-white', icon: TrendingUp },
+                              { label: 'Repayments', value: searchedProfile.successfulRepayments, color: 'text-green-400', icon: CheckCircle },
+                              { label: 'Defaults', value: searchedProfile.defaults, color: 'text-red-400', icon: ShieldAlert },
+                              { label: 'Max Borrow', value: `${parseFloat(searchedProfile.maxBorrowingLimit).toFixed(0)} TFX`, color: 'text-blue-400', icon: Zap },
+                              { label: 'Active Loan', value: searchedProfile.hasActiveLoan ? 'YES' : 'NO', color: 'text-white', icon: ArrowUpRight },
+                              { label: 'Maturity', value: `LVL ${searchedProfile.maturityLevel}`, color: 'text-purple-400', icon: Award },
+                            ].map((stat, i) => (
+                              <div key={i} className="bg-white/[0.03] border border-white/5 rounded-3xl p-6 transition-all hover:bg-white/[0.06] hover:border-white/10">
+                                <stat.icon className="w-4 h-4 text-gray-600 mb-4" />
+                                <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">{stat.label}</div>
+                                <div className={`text-xl font-black ${stat.color}`}>{stat.value}</div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* Vouchers Tab */}
+                {activeTab === 'vouchers' && (
+                  <div className="animate-fade-in">
+                    <h2 className="text-3xl font-black mb-8">Network Admirers</h2>
+
+                    {vouchersDetails.length === 0 ? (
+                      <div className="text-center py-20 bg-white/5 rounded-[2rem] border border-white/5 border-dashed">
+                        <Users className="w-16 h-16 text-gray-700 mx-auto mb-6 opacity-50" />
+                        <h3 className="text-xl font-bold text-gray-400 mb-2">No endorsements found</h3>
+                        <p className="text-gray-500 font-light">Contribute to the network and complete loans to earn trust.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {vouchersDetails.map((voucher, index) => (
+                          <div key={index} className="group/card relative bg-white/5 border border-white/10 rounded-3xl p-8 hover:bg-white/[0.08] hover:border-blue-500/30 transition-all duration-300">
+                            <div className="flex items-center gap-4 mb-6">
+                              <div className="w-14 h-14 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center text-blue-400 text-xl font-black border border-white/10 group-hover/card:scale-110 transition-transform">
+                                {voucher.username.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="text-xl font-black text-white">@{voucher.username}</div>
+                                <div className="text-xs text-gray-500 font-mono">{formatAddress(voucher.address)}</div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="bg-black/30 rounded-2xl p-4 border border-white/5">
+                                <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Trust Score</div>
+                                <div className={`text-lg font-black ${getTrustScoreColor(voucher.trustScore)}`}>{voucher.trustScore}</div>
+                              </div>
+                              <div className="bg-black/30 rounded-2xl p-4 border border-white/5">
+                                <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Risk Status</div>
+                                <div className={`text-lg font-black ${getRiskPoolColor(voucher.assignedPool)}`}>{getRiskPoolName(voucher.assignedPool)}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Vouchees Tab */}
+                {activeTab === 'vouchees' && (
+                  <div className="animate-fade-in">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                      <h2 className="text-3xl font-black">Endorsement Portfolio</h2>
+                      {constants && (
+                        <div className="px-5 py-2.5 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl flex items-center gap-3">
+                          <AlertTriangle className="w-4 h-4 text-yellow-500 animate-pulse" />
+                          <span className="text-xs font-black text-yellow-500 uppercase tracking-widest">
+                            Risk Penalty: -{constants.vouchPenaltyOnDefault} Points
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {voucheesDetails.length === 0 ? (
+                      <div className="text-center py-20 bg-white/5 rounded-[2rem] border border-white/5 border-dashed">
+                        <UserPlus className="w-16 h-16 text-gray-700 mx-auto mb-6 opacity-50" />
+                        <h3 className="text-xl font-bold text-gray-400 mb-2">Portfolio is empty</h3>
+                        <p className="text-gray-500 font-light">Search and vouch for users you trust to grow your network.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {voucheesDetails.map((vouchee, index) => (
+                          <div key={index} className="group/card relative bg-white/5 border border-white/10 rounded-3xl p-8 hover:bg-white/[0.08] hover:border-blue-500/30 transition-all duration-300">
+                            <div className="flex items-center gap-4 mb-6">
+                              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center text-white text-xl font-black border border-white/10 group-hover/card:scale-110 transition-transform">
+                                {vouchee.username.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="text-xl font-black text-white">@{vouchee.username}</div>
+                                <div className="text-xs text-gray-500 font-mono">{formatAddress(vouchee.address)}</div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="bg-black/30 rounded-2xl p-4 border border-white/5">
+                                <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Trust</div>
+                                <div className={`text-lg font-black ${getTrustScoreColor(vouchee.trustScore)}`}>{vouchee.trustScore}</div>
+                              </div>
+                              <div className="bg-black/30 rounded-2xl p-4 border border-white/5">
+                                <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Repaid</div>
+                                <div className="text-lg font-black text-green-400">{vouchee.successfulRepayments}</div>
+                              </div>
+                              <div className="bg-black/30 rounded-2xl p-4 border border-white/5">
+                                <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Faults</div>
+                                <div className="text-lg font-black text-red-400">{vouchee.defaults}</div>
+                              </div>
+                            </div>
+                            {vouchee.hasActiveLoan && (
+                              <div className="mt-6 pt-6 border-t border-white/5 flex items-center gap-3">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Active Credit Line Operational</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Info Tab */}
+                {activeTab === 'info' && (
+                  <div className="animate-fade-in space-y-8">
+                    <div className="flex items-center gap-4 mb-4">
+                      <h2 className="text-3xl font-black">Protocol Documentation</h2>
+                      <div className="h-px flex-1 bg-white/10"></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {/* What is Vouching */}
+                      <div className="relative group">
+                        <div className="absolute -inset-0.5 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-3xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                        <div className="relative bg-white/[0.03] border border-white/5 rounded-3xl p-8 h-full">
+                          <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6">
+                            <Users className="w-6 h-6 text-blue-400" />
+                          </div>
+                          <h3 className="text-xl font-black mb-4">Social Trust Mechanism</h3>
+                          <p className="text-gray-400 font-light leading-relaxed mb-4">
+                            Vouching is a decentralized endorsement protocol. By vouching for a peer, you are certifying their creditworthiness based on social or professional reputation.
+                          </p>
+                          <p className="text-gray-400 font-light leading-relaxed">
+                            This social proof allows the protocol to identify high-quality borrowers and offer preferential terms to those backed by the community.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Benefits */}
+                      <div className="relative group">
+                        <div className="absolute -inset-0.5 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-3xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                        <div className="relative bg-white/[0.03] border border-white/5 rounded-3xl p-8 h-full">
+                          <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-6">
+                            <Award className="w-6 h-6 text-purple-400" />
+                          </div>
+                          <h3 className="text-xl font-black mb-4">Network Advantages</h3>
+                          <ul className="space-y-4">
+                            {[
+                              "Enhanced Trust Scores for borrowers",
+                              "Higher borrowing limits through maturity",
+                              "Reduced interest rates via risk-pool migration",
+                              "Protocol-wide social status & credibility"
+                            ].map((item, i) => (
+                              <li key={i} className="flex items-start gap-3 text-gray-400 font-light">
+                                <CheckCircle className="w-4 h-4 text-green-500 mt-1 shrink-0" />
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      {/* Risks */}
+                      <div className="relative group lg:col-span-2">
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-red-500/20 to-orange-500/20 rounded-3xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                        <div className="relative bg-red-500/[0.02] border border-red-500/10 rounded-3xl p-8 md:p-12 overflow-hidden">
+                          <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
+
+                          <div className="flex flex-col md:flex-row gap-10 items-center">
+                            <div className="w-20 h-20 bg-red-500/10 rounded-3xl flex items-center justify-center border border-red-500/20 shrink-0">
+                              <ShieldAlert className="w-10 h-10 text-red-500" />
+                            </div>
+                            <div className="flex-1 text-center md:text-left">
+                              <h3 className="text-2xl font-black mb-4 text-red-400 uppercase tracking-tight">Risk Exposure & Penalties</h3>
+                              <p className="text-gray-400 font-light leading-relaxed max-w-3xl">
+                                Vouching creates a financial and reputational link between users. If a vouchee defaults,
+                                <span className="text-red-400 font-bold px-1 underline underline-offset-4 decoration-red-500/30">your trust score will be penalized</span>.
+                                Exercise extreme caution and only endorse users with proven integrity.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* System Constants */}
+                    {constants && (
+                      <div className="relative bg-white/[0.02] border border-white/5 rounded-3xl p-8">
+                        <div className="flex items-center gap-3 mb-8">
+                          <Zap className="w-4 h-4 text-blue-400" />
+                          <h3 className="text-sm font-black uppercase tracking-[0.2em] text-gray-500">Live Protocol Parameters</h3>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
+                          {[
+                            { label: 'Default Penalty', value: `-${constants.vouchPenaltyOnDefault}`, color: 'text-red-400' },
+                            { label: 'Limit/User', value: constants.maxVouchesPerUser, color: 'text-blue-400' },
+                            { label: 'Repay Reward', value: `+${constants.trustIncreasePerRepayment}`, color: 'text-green-400' },
+                            { label: 'Default Loss', value: `-${constants.trustDecreaseOnDefault}`, color: 'text-red-400' },
+                            { label: 'Initial Trust', value: constants.initialTrustScore, color: 'text-white' },
+                            { label: 'Cap Trust', value: constants.maxTrustScore, color: 'text-purple-400' },
+                          ].map((p, i) => (
+                            <div key={i} className="group/stat">
+                              <div className="text-[10px] text-gray-600 font-black uppercase tracking-widest mb-2 group-hover/stat:text-gray-400 transition-colors">{p.label}</div>
+                              <div className={`text-2xl font-black ${p.color}`}>{p.value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
-      </div>
+      </main>
+
+      <style jsx global>{`
+        .bg-grid-pattern {
+          background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+          background-size: 30px 30px;
+        }
+
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) scale(1); }
+          50% { transform: translateY(-20px) scale(1.05); }
+        }
+
+        @keyframes float-delayed {
+          0%, 100% { transform: translateY(0px) scale(1.05); }
+          50% { transform: translateY(-20px) scale(1); }
+        }
+
+        @keyframes gradient-x {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.2; }
+          50% { opacity: 0.4; }
+        }
+
+        .animate-float { animation: float 10s ease-in-out infinite; }
+        .animate-float-delayed { animation: float-delayed 12s ease-in-out infinite; }
+        .animate-gradient-x { animation: gradient-x 15s ease infinite; }
+        .animate-pulse-slow { animation: pulse-slow 8s ease-in-out infinite; }
+
+        .animate-fade-in { animation: fadeIn 0.8s ease-out forwards; }
+        .animate-fade-in-down { animation: fadeInDown 0.8s ease-out forwards; }
+        .animate-fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes fadeInDown {
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animation-delay-200 { animation-delay: 0.2s; }
+        .animation-delay-400 { animation-delay: 0.4s; }
+      `}</style>
     </div>
-    </>
   );
 };
 
