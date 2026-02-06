@@ -10,6 +10,7 @@ import Lend from "./pages/Lend";
 import BorrowerDashboard from "./pages/borrower/BorrowerDashboard";
 import { UserProvider } from "./context/usercontext";
 import Register from "./components/register";
+import UserProfile from "./components/UserProfile";
 function App() {
   return (
     <BlockchainProvider>
@@ -24,6 +25,7 @@ function App() {
           <Route path="/borrow" element={< BorrowerDashboard />} />
           <Route  path="/lender" element={<LenderDashboard />} />
           <Route path="/register" element={< Register />} />
+        <Route path="/user" element={<UserProfile />} />
         </Routes>
       </Router>
       </DAOProvider>

@@ -29,9 +29,9 @@ const Navbar = () => {
 
   const navLinks = [
     { path: "/", label: "Home", icon: Home },
-    { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/lend", label: "Lend", icon: TrendingUp },
+    { path: "/lender", label: "Lend", icon: TrendingUp },
     { path: "/borrow", label: "Borrow", icon: HandCoins },
+
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -99,7 +99,7 @@ const Navbar = () => {
                 {/* Username Display */}
                 {hasUsername && userProfile?.username ? (
                   <Link
-                    to="/dashboard"
+                    to="/user"
                     className="group px-4 py-2.5 bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-xl border border-purple-500/40 hover:border-purple-400/60 rounded-xl flex items-center gap-3 transition-all duration-300 hover:shadow-[0_0_20px_rgba(168,85,247,0.3)]"
                   >
                     <div className="relative">
