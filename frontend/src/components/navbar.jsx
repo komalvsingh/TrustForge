@@ -2,7 +2,8 @@ import { useBlockchain } from "../context/BlockchainContext";
 import { useUser } from "../context/usercontext";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Wallet, LogOut, Menu, X, TrendingUp, HandCoins, Home, LayoutDashboard, User, Coins } from "lucide-react";
+import { Wallet, LogOut, Menu, X, TrendingUp, HandCoins, Home, LayoutDashboard, User, Coins, ToyBrick } from "lucide-react";
+
 
 const Navbar = () => {
   const { account, connectWallet, disconnectWallet } = useBlockchain();
@@ -32,12 +33,15 @@ const Navbar = () => {
     { path: "/lender", label: "Lend", icon: TrendingUp },
     { path: "/borrow", label: "Borrow", icon: HandCoins },
     { path: "/dao", label: "DAO", icon: Coins },
+    { path: "/vouch", label: "Vouch", icon: ToyBrick },
 
   ];
 
   const isActive = (path) => location.pathname === path;
 
   return (
+    <>
+
     <nav className="relative w-full bg-black/50 backdrop-blur-xl border-b border-white/10">
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between gap-8">
@@ -55,6 +59,7 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
+           <navbar />
           <div className="hidden lg:flex items-center gap-2 flex-1 justify-center">
             {navLinks.map((link) => {
               const Icon = link.icon;
@@ -281,6 +286,7 @@ const Navbar = () => {
         }
       `}</style>
     </nav>
+    </>
   );
 };
 
