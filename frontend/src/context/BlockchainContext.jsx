@@ -6,8 +6,15 @@ import TFXTokenABI from "../abis/TFXToken.json";
 import TrustForgeABI from "../abis/TrustForge.json";
 
 // Addresses (from your deployments)
-const TFX_ADDRESS = "0x3BfC9C9A6BA115223283ffA1a1CdE90a9D6e187b";
-const TRUSTFORGE_ADDRESS = "0x463942083D67Fe0fF490D6Bd1F4c6e671c0C309a";
+const TFX_ADDRESS = "0x6D646C4d03759b28bae0f64487b44d0eE5BD85F0";
+const TRUSTFORGE_ADDRESS = "0x1E6c3c940b8C9Fd7d6546EbA6105237e508b4201";
+
+// Risk Pool Enum (matching contract)
+const RiskPool = {
+  LOW_RISK: 0,
+  MEDIUM_RISK: 1,
+  HIGH_RISK: 2
+};
 
 const BlockchainContext = createContext();
 
@@ -39,17 +46,8 @@ export const BlockchainProvider = ({ children }) => {
       const tfxABI = TFXTokenABI.abi || TFXTokenABI;
       const trustForgeABI = TrustForgeABI.abi || TrustForgeABI;
 
-      const tfxContract = new Contract(
-        TFX_ADDRESS,
-        tfxABI,
-        signer
-      );
-
-      const trustForgeContract = new Contract(
-        TRUSTFORGE_ADDRESS,
-        trustForgeABI,
-        signer
-      );
+      const tfxContract = new Contract(TFX_ADDRESS, tfxABI, signer);
+      const trustForgeContract = new Contract(TRUSTFORGE_ADDRESS, trustForgeABI, signer);
 
       setAccount(accounts[0]);
       setProvider(provider);
@@ -341,15 +339,70 @@ export const BlockchainProvider = ({ children }) => {
   };
 
   /* ===================================================================
-     LENDER FUNCTIONS
+     USERNAME FUNCTIONS (NEW IN V2)
      =================================================================== */
 
-  const depositToPool = async (amount) => {
+  /**
+   * Register a username for the wallet (3-20 chars, alphanumeric + underscore)
+   */
+  const registerUsername = async (username) => {
+    if (!trustForge) throw new Error("TrustForge contract not initialized");
+    try {
+      setLoading(true);
+      const tx = await trustForge.registerUsername(username);
+      await tx.wait();
+      return tx;
+    } catch (error) {
+      console.error("Error registering username:", error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Get address by username
+   */
+  const getAddressByUsername = async (username) => {
+    if (!trustForge) return null;
+    try {
+      const address = await trustForge.getAddressByUsername(username);
+      return address === "0x0000000000000000000000000000000000000000" ? null : address;
+    } catch (error) {
+      console.error("Error getting address by username:", error);
+      return null;
+    }
+  };
+
+  /**
+   * Check if an address has a username
+   */
+  const hasUsernameRegistered = async (address) => {
+    if (!trustForge) return false;
+    try {
+      const userAddress = address || account;
+      return await trustForge.hasUsername(userAddress);
+    } catch (error) {
+      console.error("Error checking username:", error);
+      return false;
+    }
+  };
+
+  /* ===================================================================
+     LENDER FUNCTIONS (UPDATED FOR RISK POOLS)
+     =================================================================== */
+
+  /**
+   * Deposit tokens into a specific risk pool
+   * @param {string} amount - Amount to deposit
+   * @param {number} pool - Risk pool (0=LOW, 1=MEDIUM, 2=HIGH)
+   */
+  const depositToPool = async (amount, pool = RiskPool.LOW_RISK) => {
     if (!trustForge) throw new Error("TrustForge contract not initialized");
     try {
       setLoading(true);
       await approveTFX(amount);
-      const tx = await trustForge.depositToPool(parseEther(amount));
+      const tx = await trustForge.depositToPool(parseEther(amount), pool);
       await tx.wait();
       return tx;
     } catch (error) {
@@ -360,11 +413,16 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
-  const withdrawFromPool = async (amount) => {
+  /**
+   * Withdraw tokens from a specific pool
+   * @param {string} amount - Amount to withdraw
+   * @param {number} pool - Risk pool (0=LOW, 1=MEDIUM, 2=HIGH)
+   */
+  const withdrawFromPool = async (amount, pool = RiskPool.LOW_RISK) => {
     if (!trustForge) throw new Error("TrustForge contract not initialized");
     try {
       setLoading(true);
-      const tx = await trustForge.withdrawFromPool(parseEther(amount));
+      const tx = await trustForge.withdrawFromPool(parseEther(amount), pool);
       await tx.wait();
       return tx;
     } catch (error) {
@@ -375,6 +433,9 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Claim interest from all pools
+   */
   const claimInterest = async () => {
     if (!trustForge) throw new Error("TrustForge contract not initialized");
     try {
@@ -391,9 +452,14 @@ export const BlockchainProvider = ({ children }) => {
   };
 
   /* ===================================================================
-     BORROWER FUNCTIONS
+     BORROWER FUNCTIONS (UPDATED FOR V2)
      =================================================================== */
 
+  /**
+   * Request a loan (pool auto-assigned based on trust score)
+   * @param {string} amount - Loan amount
+   * @param {number} duration - Loan duration in seconds
+   */
   const requestLoan = async (amount, duration) => {
     if (!trustForge) throw new Error("TrustForge contract not initialized");
     try {
@@ -409,6 +475,9 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Repay active loan
+   */
   const repayLoan = async () => {
     if (!trustForge) throw new Error("TrustForge contract not initialized");
     try {
@@ -427,6 +496,9 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Mark a loan as defaulted (callable by anyone after grace period)
+   */
   const markDefault = async (borrowerAddress) => {
     if (!trustForge) throw new Error("TrustForge contract not initialized");
     try {
@@ -443,14 +515,18 @@ export const BlockchainProvider = ({ children }) => {
   };
 
   /* ===================================================================
-     TRUST & SOCIAL FUNCTIONS
+     TRUST & SOCIAL FUNCTIONS (UPDATED FOR V2)
      =================================================================== */
 
-  const vouchForUser = async (voucheeAddress) => {
+  /**
+   * Vouch for another user by username
+   * @param {string} voucheeUsername - Username of the person to vouch for
+   */
+  const vouchForUser = async (voucheeUsername) => {
     if (!trustForge) throw new Error("TrustForge contract not initialized");
     try {
       setLoading(true);
-      const tx = await trustForge.vouchForUser(voucheeAddress);
+      const tx = await trustForge.vouchForUser(voucheeUsername);
       await tx.wait();
       return tx;
     } catch (error) {
@@ -461,6 +537,9 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Check if voucher has vouched for vouchee
+   */
   const hasVouched = async (voucherAddress, voucheeAddress) => {
     if (!trustForge) return false;
     try {
@@ -471,16 +550,48 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Get users who vouched for an address
+   */
+  const getUserVouches = async (address) => {
+    if (!trustForge) return [];
+    try {
+      const userAddress = address || account;
+      return await trustForge.getUserVouches(userAddress);
+    } catch (error) {
+      console.error("Error getting user vouches:", error);
+      return [];
+    }
+  };
+
+  /**
+   * Get users that an address has vouched for
+   */
+  const getVouchesGiven = async (address) => {
+    if (!trustForge) return [];
+    try {
+      const userAddress = address || account;
+      return await trustForge.getVouchesGiven(userAddress);
+    } catch (error) {
+      console.error("Error getting vouches given:", error);
+      return [];
+    }
+  };
+
   /* ===================================================================
-     READ/VIEW FUNCTIONS
+     READ/VIEW FUNCTIONS (UPDATED FOR V2)
      =================================================================== */
 
+  /**
+   * Get comprehensive user profile
+   */
   const getUserProfile = async (address) => {
     if (!trustForge) return null;
     try {
       const userAddress = address || account;
       const profile = await trustForge.getUserProfile(userAddress);
       return {
+        username: profile.username,
         trustScore: profile.trustScore.toString(),
         totalLoansTaken: profile.totalLoansTaken.toString(),
         successfulRepayments: profile.successfulRepayments.toString(),
@@ -489,6 +600,7 @@ export const BlockchainProvider = ({ children }) => {
         walletAge: profile.walletAge.toString(),
         maturityLevel: profile.maturityLevel.toString(),
         maxBorrowingLimit: formatEther(profile.maxBorrowingLimit),
+        assignedPool: profile.assignedPool, // 0=LOW, 1=MED, 2=HIGH
       };
     } catch (error) {
       console.error("Error getting user profile:", error);
@@ -496,6 +608,9 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Get active loan details
+   */
   const getActiveLoan = async (address) => {
     if (!trustForge) return null;
     try {
@@ -507,7 +622,8 @@ export const BlockchainProvider = ({ children }) => {
         totalRepayment: formatEther(loan.totalRepayment),
         dueDate: loan.dueDate.toString(),
         duration: loan.duration.toString(),
-        status: loan.status,
+        status: loan.status, // 0=ACTIVE, 1=REPAID, 2=DEFAULTED
+        pool: loan.pool, // 0=LOW, 1=MED, 2=HIGH
         isOverdue: loan.isOverdue,
       };
     } catch (error) {
@@ -516,6 +632,9 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Get wallet maturity information
+   */
   const getWalletMaturity = async (address) => {
     if (!trustForge) return null;
     try {
@@ -532,10 +651,14 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
-  const getPoolStats = async () => {
+  /**
+   * Get statistics for a specific risk pool
+   * @param {number} pool - Risk pool (0=LOW, 1=MEDIUM, 2=HIGH)
+   */
+  const getPoolStatsForRisk = async (pool = RiskPool.LOW_RISK) => {
     if (!trustForge) return null;
     try {
-      const stats = await trustForge.getPoolStats();
+      const stats = await trustForge.getPoolStatsForRisk(pool);
       return {
         totalLiquidity: formatEther(stats.totalLiquidity),
         totalActiveLoanAmount: formatEther(stats.totalActiveLoanAmount),
@@ -545,20 +668,63 @@ export const BlockchainProvider = ({ children }) => {
         totalDefaulted: formatEther(stats.totalDefaulted),
       };
     } catch (error) {
-      console.error("Error getting pool stats:", error);
+      console.error("Error getting pool stats for risk:", error);
       return null;
     }
   };
 
+  /**
+   * Get all pool statistics at once
+   */
+  const getAllPoolStats = async () => {
+    if (!trustForge) return null;
+    try {
+      const stats = await trustForge.getAllPoolStats();
+      return {
+        lowRisk: {
+          totalLiquidity: formatEther(stats.lowRisk.totalLiquidity),
+          totalActiveLoans: formatEther(stats.lowRisk.totalActiveLoans),
+          totalDefaulted: formatEther(stats.lowRisk.totalDefaulted),
+          totalInterestPool: formatEther(stats.lowRisk.totalInterestPool),
+          totalLenderDeposits: formatEther(stats.lowRisk.totalLenderDeposits),
+        },
+        medRisk: {
+          totalLiquidity: formatEther(stats.medRisk.totalLiquidity),
+          totalActiveLoans: formatEther(stats.medRisk.totalActiveLoans),
+          totalDefaulted: formatEther(stats.medRisk.totalDefaulted),
+          totalInterestPool: formatEther(stats.medRisk.totalInterestPool),
+          totalLenderDeposits: formatEther(stats.medRisk.totalLenderDeposits),
+        },
+        highRisk: {
+          totalLiquidity: formatEther(stats.highRisk.totalLiquidity),
+          totalActiveLoans: formatEther(stats.highRisk.totalActiveLoans),
+          totalDefaulted: formatEther(stats.highRisk.totalDefaulted),
+          totalInterestPool: formatEther(stats.highRisk.totalInterestPool),
+          totalLenderDeposits: formatEther(stats.highRisk.totalLenderDeposits),
+        },
+      };
+    } catch (error) {
+      console.error("Error getting all pool stats:", error);
+      return null;
+    }
+  };
+
+  /**
+   * Get lender information across all pools
+   */
   const getLenderInfo = async (address) => {
     if (!trustForge) return null;
     try {
       const lenderAddress = address || account;
       const info = await trustForge.getLenderInfo(lenderAddress);
       return {
-        depositedAmount: formatEther(info.depositedAmount),
+        depositedLowRisk: formatEther(info.depositedLowRisk),
+        depositedMedRisk: formatEther(info.depositedMedRisk),
+        depositedHighRisk: formatEther(info.depositedHighRisk),
         totalInterestEarned: formatEther(info.totalInterestEarned),
-        pendingInterest: formatEther(info.pendingInterest),
+        pendingInterestLow: formatEther(info.pendingInterestLow),
+        pendingInterestMed: formatEther(info.pendingInterestMed),
+        pendingInterestHigh: formatEther(info.pendingInterestHigh),
       };
     } catch (error) {
       console.error("Error getting lender info:", error);
@@ -566,26 +732,33 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
-  const getDAOInfo = async () => {
-    if (!trustForge) return null;
+  /**
+   * Get loan history for a user
+   */
+  const getLoanHistory = async (address) => {
+    if (!trustForge) return [];
     try {
-      const info = await trustForge.getDAOInfo();
-      return {
-        enabled: info.enabled,
-        dao: info.dao,
-        trustIncrease: info.trustIncrease.toString(),
-        trustDecrease: info.trustDecrease.toString(),
-        baseRate: info.baseRate.toString(),
-        maxRate: info.maxRate.toString(),
-        minDuration: info.minDuration.toString(),
-        maxDuration: info.maxDuration.toString(),
-      };
+      const userAddress = address || account;
+      const history = await trustForge.getLoanHistory(userAddress);
+      return history.map(loan => ({
+        principal: formatEther(loan.principal),
+        interestAmount: formatEther(loan.interestAmount),
+        totalRepayment: formatEther(loan.totalRepayment),
+        startTime: loan.startTime.toString(),
+        dueDate: loan.dueDate.toString(),
+        duration: loan.duration.toString(),
+        status: loan.status,
+        riskPool: loan.riskPool,
+      }));
     } catch (error) {
-      console.error("Error getting DAO info:", error);
-      return null;
+      console.error("Error getting loan history:", error);
+      return [];
     }
   };
 
+  /**
+   * Get contract constants
+   */
   const getConstants = async () => {
     if (!trustForge) return null;
     try {
@@ -596,6 +769,9 @@ export const BlockchainProvider = ({ children }) => {
         maturityLevel2,
         maturityLevel3,
         minLoanAmount,
+        minLoanDuration,
+        maxLoanDuration,
+        gracePeriod,
       ] = await Promise.all([
         trustForge.INITIAL_TRUST_SCORE(),
         trustForge.MAX_TRUST_SCORE(),
@@ -603,6 +779,9 @@ export const BlockchainProvider = ({ children }) => {
         trustForge.MATURITY_LEVEL_2(),
         trustForge.MATURITY_LEVEL_3(),
         trustForge.MIN_LOAN_AMOUNT(),
+        trustForge.MIN_LOAN_DURATION(),
+        trustForge.MAX_LOAN_DURATION(),
+        trustForge.GRACE_PERIOD(),
       ]);
 
       return {
@@ -612,6 +791,9 @@ export const BlockchainProvider = ({ children }) => {
         maturityLevel2: maturityLevel2.toString(),
         maturityLevel3: maturityLevel3.toString(),
         minLoanAmount: formatEther(minLoanAmount),
+        minLoanDuration: minLoanDuration.toString(),
+        maxLoanDuration: maxLoanDuration.toString(),
+        gracePeriod: gracePeriod.toString(),
       };
     } catch (error) {
       console.error("Error getting constants:", error);
@@ -619,39 +801,96 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
-  const getLoanDurationLimits = async () => {
-    if (!trustForge) return null;
-    try {
-      const limits = await trustForge.getLoanDurationLimits();
-      return {
-        minDuration: limits.minDuration.toString(),
-        maxDuration: limits.maxDuration.toString(),
-      };
-    } catch (error) {
-      console.error("Error getting loan duration limits:", error);
-      return null;
-    }
-  };
-
   /* ===================================================================
-     ADMIN FUNCTIONS
+     ADMIN FUNCTIONS (UPDATED FOR V2)
      =================================================================== */
 
-  const enableDAO = async (daoAddress) => {
+  /**
+   * Update trust parameters (owner only)
+   */
+  const updateTrustParameters = async (increasePerRepayment, decreaseOnDefault, vouchPenalty) => {
     if (!trustForge) throw new Error("TrustForge contract not initialized");
     try {
       setLoading(true);
-      const tx = await trustForge.enableDAO(daoAddress);
+      const tx = await trustForge.updateTrustParameters(
+        increasePerRepayment,
+        decreaseOnDefault,
+        vouchPenalty
+      );
       await tx.wait();
       return tx;
     } catch (error) {
-      console.error("Error enabling DAO:", error);
+      console.error("Error updating trust parameters:", error);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * Update borrowing limits (owner only)
+   */
+  const updateBorrowingLimits = async (lowTrust, medTrust, highTrust) => {
+    if (!trustForge) throw new Error("TrustForge contract not initialized");
+    try {
+      setLoading(true);
+      const tx = await trustForge.updateBorrowingLimits(
+        parseEther(lowTrust),
+        parseEther(medTrust),
+        parseEther(highTrust)
+      );
+      await tx.wait();
+      return tx;
+    } catch (error) {
+      console.error("Error updating borrowing limits:", error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Update interest rates for a specific pool (owner only)
+   * @param {number} pool - Risk pool (0=LOW, 1=MEDIUM, 2=HIGH)
+   * @param {number} baseRate - Base interest rate in basis points (100 = 1%)
+   * @param {number} maxRate - Max interest rate in basis points
+   */
+  const updatePoolInterestRates = async (pool, baseRate, maxRate) => {
+    if (!trustForge) throw new Error("TrustForge contract not initialized");
+    try {
+      setLoading(true);
+      const tx = await trustForge.updatePoolInterestRates(pool, baseRate, maxRate);
+      await tx.wait();
+      return tx;
+    } catch (error) {
+      console.error("Error updating pool interest rates:", error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Emergency withdraw stuck tokens (owner only)
+   */
+  const emergencyWithdraw = async (tokenAddress, amount) => {
+    if (!trustForge) throw new Error("TrustForge contract not initialized");
+    try {
+      setLoading(true);
+      const tx = await trustForge.emergencyWithdraw(tokenAddress, parseEther(amount));
+      await tx.wait();
+      return tx;
+    } catch (error) {
+      console.error("Error emergency withdraw:", error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Pause contract (owner only)
+   */
   const pauseContract = async () => {
     if (!trustForge) throw new Error("TrustForge contract not initialized");
     try {
@@ -667,6 +906,9 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Unpause contract (owner only)
+   */
   const unpauseContract = async () => {
     if (!trustForge) throw new Error("TrustForge contract not initialized");
     try {
@@ -693,6 +935,7 @@ export const BlockchainProvider = ({ children }) => {
         loading,
         connectWallet,
         disconnectWallet,
+        
         // TFX Token - Basic Functions
         getTFXBalance,
         approveTFX,
@@ -702,41 +945,60 @@ export const BlockchainProvider = ({ children }) => {
         getTFXDecimals,
         getTFXTotalSupply,
         getTFXOwner,
+        
         // TFX Token - Faucet Functions
         claimTFX,
         getLastClaimTime,
         getFaucetInfo,
         canClaimFaucet,
+        
         // TFX Token - Admin Functions
         mintTFX,
         burnTFX,
-        // Lender Functions
+        
+        // Username Functions (NEW)
+        registerUsername,
+        getAddressByUsername,
+        hasUsernameRegistered,
+        
+        // Lender Functions (Updated for Risk Pools)
         depositToPool,
         withdrawFromPool,
         claimInterest,
+        
         // Borrower Functions
         requestLoan,
         repayLoan,
         markDefault,
+        
         // Trust & Social Functions
         vouchForUser,
         hasVouched,
+        getUserVouches,
+        getVouchesGiven,
+        
         // Read/View Functions
         getUserProfile,
         getActiveLoan,
         getWalletMaturity,
-        getPoolStats,
+        getPoolStatsForRisk,
+        getAllPoolStats,
         getLenderInfo,
-        getDAOInfo,
+        getLoanHistory,
         getConstants,
-        getLoanDurationLimits,
+        
         // Admin Functions
-        enableDAO,
+        updateTrustParameters,
+        updateBorrowingLimits,
+        updatePoolInterestRates,
+        emergencyWithdraw,
         pauseContract,
         unpauseContract,
+        
         // Constants
         TFX_ADDRESS,
         TRUSTFORGE_ADDRESS,
+        RiskPool, // Export enum for use in components
       }}
     >
       {children}
@@ -751,3 +1013,6 @@ export const useBlockchain = () => {
   }
   return context;
 };
+
+// Export RiskPool enum for use in components
+export { RiskPool };

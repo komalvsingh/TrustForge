@@ -275,8 +275,8 @@
       ]
     },
     "C:\\Users\\ACER\\ABCC\\Blockchain\\contracts\\trustforge.sol": {
-      "lastModificationDate": 1770298818503,
-      "contentHash": "d358e406dbe1558d1ab757b740755ea4",
+      "lastModificationDate": 1770356556686,
+      "contentHash": "b3b29b302bff8dabe9a18ed15f4e269f",
       "sourceName": "contracts/trustforge.sol",
       "solcConfig": {
         "version": "0.8.28",
