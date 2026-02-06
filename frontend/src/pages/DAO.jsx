@@ -3,7 +3,7 @@ import { useDAO } from "../context/DAOContext";
 import { useBlockchain } from "../context/BlockchainContext";
 import ProposalCard from "../components/ProposalCard";
 import CreateProposal from "../components/CreateProposal";
-import Navbar from "../components/navbar";
+import Navbar from "../components/Navbar";
 import {
   Users,
   Plus,

@@ -1,4 +1,4 @@
-import Navbar from "../components/navbar";
+import Navbar from "../components/Navbar";
 import { useBlockchain } from "../context/BlockchainContext";
 import { Shield, TrendingUp, Lock, Users, Zap, CheckCircle, ArrowRight, Sparkles, Award, Wifi } from "lucide-react";
 

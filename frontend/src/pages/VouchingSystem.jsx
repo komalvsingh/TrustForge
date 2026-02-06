@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useBlockchain } from '../context/BlockchainContext';
-import Navbar from '../components/navbar';
+import Navbar from '../components/Navbar';
 import {
   Users,
   UserPlus,

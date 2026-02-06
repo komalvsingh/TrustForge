@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useBlockchain, RiskPool } from '../../context/BlockchainContext';
-import Navbar from '../../components/navbar';
+import Navbar from '../../components/Navbar';
 
 const LenderDashboard = () => {
   const {
