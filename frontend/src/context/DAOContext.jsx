@@ -1,17 +1,19 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { Contract, formatEther } from "ethers";
+import { Contract, formatEther, Interface } from "ethers";
 import { useBlockchain } from "./BlockchainContext";
 
 // DAO ABI
 import TrustForgeDAOABI from "../abis/TrustForgeDAO.json";
+// TrustForge ABI (needed to encode calldata)
+import TrustForgeABI from "../abis/TrustForge.json";
 
-// DAO address (your deployed DAO)
-const DAO_ADDRESS = "0x59A139652C16982cec62120854Ffa231f36B2AAD";
+// DAO address
+const DAO_ADDRESS = "0x30094799c55bf1194D046DBe0D9CDef41a6eC076";
 
 const DAOContext = createContext();
 
 export const DAOProvider = ({ children }) => {
-  const { provider, signer, account, tfx } = useBlockchain();
+  const { signer, account, tfx } = useBlockchain();
 
   const [dao, setDao] = useState(null);
   const [proposalCount, setProposalCount] = useState(0);
@@ -33,7 +35,7 @@ export const DAOProvider = ({ children }) => {
   }, [signer]);
 
   /* =========================================================
-     READ FUNCTIONS (UI SAFE)
+     READ FUNCTIONS
      ========================================================= */
 
   const fetchProposalCount = async () => {
@@ -46,15 +48,17 @@ export const DAOProvider = ({ children }) => {
   const getProposal = async (proposalId) => {
     if (!dao) return null;
 
-    const proposal = await dao.getProposal(proposalId);
+    const p = await dao.getProposal(proposalId);
 
     return {
       id: proposalId,
-      description: proposal[0],
-      yesVotes: formatEther(proposal[1]),
-      noVotes: formatEther(proposal[2]),
-      endTime: Number(proposal[3]),
-      executed: proposal[4],
+      target: p[0],
+      value: p[1],
+      data: p[2],
+      yesVotes: formatEther(p[3]),
+      noVotes: formatEther(p[4]),
+      endTime: Number(p[5]),
+      executed: p[6],
     };
   };
 
@@ -66,8 +70,8 @@ export const DAOProvider = ({ children }) => {
 
     for (let i = 1; i <= count; i++) {
       try {
-        const p = await getProposal(i);
-        if (p) proposals.push(p);
+        const proposal = await getProposal(i);
+        if (proposal) proposals.push(proposal);
       } catch (err) {
         console.error("Failed to load proposal", i, err);
       }
@@ -84,15 +88,35 @@ export const DAOProvider = ({ children }) => {
   };
 
   /* =========================================================
-     WRITE (GOVERNANCE ONLY)
+     WRITE FUNCTIONS (GOVERNANCE)
      ========================================================= */
 
-  const createProposal = async (description) => {
+  /**
+   * Create executable proposal
+   * @param trustForgeAddress address of TrustForge contract
+   * @param functionName string (e.g. "pause", "updateBorrowingLimits")
+   * @param args array of arguments
+   * @param description human readable text
+   */
+  const createProposal = async (
+    trustForgeAddress,
+    functionName,
+    args,
+    description
+  ) => {
     if (!dao) throw new Error("DAO not initialized");
+
+    const iface = new Interface(TrustForgeABI.abi);
+    const data = iface.encodeFunctionData(functionName, args);
 
     setLoading(true);
     try {
-      const tx = await dao.createProposal(description);
+      const tx = await dao.createProposal(
+        trustForgeAddress,
+        0, // ETH value
+        data,
+        description
+      );
       await tx.wait();
       return tx;
     } finally {
@@ -106,6 +130,19 @@ export const DAOProvider = ({ children }) => {
     setLoading(true);
     try {
       const tx = await dao.vote(proposalId, support);
+      await tx.wait();
+      return tx;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const executeProposal = async (proposalId) => {
+    if (!dao) throw new Error("DAO not initialized");
+
+    setLoading(true);
+    try {
+      const tx = await dao.executeProposal(proposalId);
       await tx.wait();
       return tx;
     } finally {
@@ -130,8 +167,7 @@ export const DAOProvider = ({ children }) => {
 
   const getTimeRemaining = (endTime) => {
     const now = Math.floor(Date.now() / 1000);
-    const diff = endTime - now;
-    return diff > 0 ? diff : 0;
+    return Math.max(endTime - now, 0);
   };
 
   return (
@@ -146,6 +182,7 @@ export const DAOProvider = ({ children }) => {
         getVotingPower,
         createProposal,
         vote,
+        executeProposal,
         getProposalStatus,
         getTimeRemaining,
         DAO_ADDRESS,

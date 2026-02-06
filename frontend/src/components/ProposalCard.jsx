@@ -1,12 +1,19 @@
 import { useDAO } from "../context/DAOContext";
 
 const ProposalCard = ({ proposal }) => {
-  const { vote, getProposalStatus, getTimeRemaining, loading } = useDAO();
+  const {
+    vote,
+    executeProposal,
+    getProposalStatus,
+    getTimeRemaining,
+    loading,
+  } = useDAO();
 
   const status = getProposalStatus(proposal);
   const timeLeft = getTimeRemaining(proposal.endTime);
 
   const canVote = status === "Active";
+  const canExecute = status === "Passed" && !proposal.executed;
 
   const handleVote = async (support) => {
     try {
@@ -16,13 +23,19 @@ const ProposalCard = ({ proposal }) => {
     }
   };
 
+  const handleExecute = async () => {
+    try {
+      await executeProposal(proposal.id);
+    } catch (err) {
+      console.error("Execution failed:", err);
+    }
+  };
+
   return (
     <div className="border rounded-xl p-4 bg-white shadow-sm">
       {/* Header */}
       <div className="flex justify-between mb-2">
-        <h3 className="font-semibold">
-          Proposal #{proposal.id}
-        </h3>
+        <h3 className="font-semibold">Proposal #{proposal.id}</h3>
         <span
           className={`text-sm px-2 py-1 rounded ${
             status === "Active"
@@ -38,8 +51,10 @@ const ProposalCard = ({ proposal }) => {
         </span>
       </div>
 
-      {/* Description */}
-      <p className="mb-4 text-gray-700">{proposal.description}</p>
+      {/* Proposal Target */}
+      <p className="text-xs text-gray-500 mb-2 break-all">
+        Target: {proposal.target}
+      </p>
 
       {/* Vote Stats */}
       <div className="flex gap-8 text-sm mb-4">
@@ -63,7 +78,7 @@ const ProposalCard = ({ proposal }) => {
         </div>
       </div>
 
-      {/* Actions */}
+      {/* Voting */}
       {canVote && (
         <div className="flex gap-3">
           <button
@@ -84,9 +99,20 @@ const ProposalCard = ({ proposal }) => {
         </div>
       )}
 
-      {!canVote && (
+      {/* Execute */}
+      {canExecute && (
+        <button
+          disabled={loading}
+          onClick={handleExecute}
+          className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm"
+        >
+          Execute Proposal
+        </button>
+      )}
+
+      {!canVote && !canExecute && (
         <p className="text-xs text-gray-500 mt-2">
-          Voting has ended for this proposal
+          No actions available
         </p>
       )}
     </div>
