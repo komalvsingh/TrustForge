@@ -6,7 +6,7 @@ import { useBlockchain } from "./BlockchainContext";
 import TrustForgeDAOABI from "../abis/TrustForgeDAO.json";
 
 // DAO address (your deployed DAO)
-const DAO_ADDRESS = "0x59A139652C16982cec62120854Ffa231f36B2AAD";
+const DAO_ADDRESS = "0x30094799c55bf1194D046DBe0D9CDef41a6eC076";
 
 const DAOContext = createContext();
 
