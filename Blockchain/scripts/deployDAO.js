@@ -1,4 +1,4 @@
-import hre from "hardhat";
+const hre = require("hardhat");
 
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
@@ -6,24 +6,42 @@ async function main() {
   console.log("Deploying DAO with account:", deployer.address);
   console.log(
     "Deployer balance:",
-    hre.ethers.formatEther(await deployer.provider.getBalance(deployer.address)),
+    hre.ethers.formatEther(
+      await deployer.provider.getBalance(deployer.address)
+    ),
     "ETH"
   );
 
-  // 🔗 Existing TFX Token address
-  const TFX_TOKEN_ADDRESS = "0x3BfC9C9A6BA115223283ffA1a1CdE90a9D6e187b";
+  // Existing addresses
+  const TFX_TOKEN_ADDRESS = "0x4b821BBc5C7327A400486eFB61DA250979e32b3B";
+  const TRUSTFORGE_ADDRESS = "0x2caB839bB17CeB77c09d0EdE66E5349Cd2130c18";
 
-  // DAO contract
+  // 1️⃣ Deploy DAO
   const TrustForgeDAO = await hre.ethers.getContractFactory("TrustForgeDAO");
   const dao = await TrustForgeDAO.deploy(TFX_TOKEN_ADDRESS);
-
   await dao.waitForDeployment();
 
-  console.log("✅ TrustForgeDAO deployed at:", await dao.getAddress());
+  const daoAddress = await dao.getAddress();
+  console.log("✅ TrustForgeDAO deployed at:", daoAddress);
+
+  // 2️⃣ Get TrustForge contract instance
+  const trustForge = await hre.ethers.getContractAt(
+    "TrustForge",
+    TRUSTFORGE_ADDRESS
+  );
+
+  // 3️⃣ Transfer ownership
+  console.log("🔑 Transferring TrustForge ownership to DAO...");
+  const tx = await trustForge.transferOwnership(daoAddress);
+  await tx.wait();
+
+  console.log("✅ Ownership transferred.");
+  console.log("🔍 New TrustForge owner:", await trustForge.owner());
+
   console.log("🔗 Governance token (TFX):", TFX_TOKEN_ADDRESS);
 }
 
 main().catch((error) => {
   console.error(error);
-  process.exitCode = 1;
+  process.exit(1);
 });
