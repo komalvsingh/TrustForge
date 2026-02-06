@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { BlockchainProvider } from "./context/BlockchainContext";
+import { DAOProvider } from "./context/DAOContext";
 
 import Home from "./pages/home";
 import Dashboard from "./pages/Dashboard";
@@ -11,15 +12,18 @@ function App() {
   return (
     <BlockchainProvider>
       <UserProvider>
+      <DAOProvider>
       <Router>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dao" element={<DAO />} />
           <Route path="/lend" element={<Lend />} />
           <Route path="/borrow" element={< BorrowerDashboard />} />
           <Route path="/register" element={< Register />} />
         </Routes>
       </Router>
+      </DAOProvider>
       </UserProvider>
     </BlockchainProvider>
   );
