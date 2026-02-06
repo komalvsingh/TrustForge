@@ -54,7 +54,7 @@ export const BlockchainProvider = ({ children }) => {
       setSigner(signer);
       setTfx(tfxContract);
       setTrustForge(trustForgeContract);
-      
+
       console.log("Wallet connected:", accounts[0]);
     } catch (error) {
       console.error("Error connecting wallet:", error);
@@ -224,7 +224,7 @@ export const BlockchainProvider = ({ children }) => {
       const lastClaim = await tfx.lastClaimTime(userAddress);
       const cooldown = await tfx.FAUCET_COOLDOWN();
       const currentTime = Math.floor(Date.now() / 1000);
-      
+
       return currentTime - Number(lastClaim) >= Number(cooldown);
     } catch (error) {
       console.error("Error checking faucet eligibility:", error);
@@ -935,7 +935,7 @@ export const BlockchainProvider = ({ children }) => {
         loading,
         connectWallet,
         disconnectWallet,
-        
+
         // TFX Token - Basic Functions
         getTFXBalance,
         approveTFX,
@@ -945,38 +945,38 @@ export const BlockchainProvider = ({ children }) => {
         getTFXDecimals,
         getTFXTotalSupply,
         getTFXOwner,
-        
+
         // TFX Token - Faucet Functions
         claimTFX,
         getLastClaimTime,
         getFaucetInfo,
         canClaimFaucet,
-        
+
         // TFX Token - Admin Functions
         mintTFX,
         burnTFX,
-        
+
         // Username Functions (NEW)
         registerUsername,
         getAddressByUsername,
         hasUsernameRegistered,
-        
+
         // Lender Functions (Updated for Risk Pools)
         depositToPool,
         withdrawFromPool,
         claimInterest,
-        
+
         // Borrower Functions
         requestLoan,
         repayLoan,
         markDefault,
-        
+
         // Trust & Social Functions
         vouchForUser,
         hasVouched,
         getUserVouches,
         getVouchesGiven,
-        
+
         // Read/View Functions
         getUserProfile,
         getActiveLoan,
@@ -986,7 +986,7 @@ export const BlockchainProvider = ({ children }) => {
         getLenderInfo,
         getLoanHistory,
         getConstants,
-        
+
         // Admin Functions
         updateTrustParameters,
         updateBorrowingLimits,
@@ -994,7 +994,7 @@ export const BlockchainProvider = ({ children }) => {
         emergencyWithdraw,
         pauseContract,
         unpauseContract,
-        
+
         // Constants
         TFX_ADDRESS,
         TRUSTFORGE_ADDRESS,

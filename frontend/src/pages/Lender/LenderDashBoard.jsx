@@ -18,6 +18,7 @@ const LenderDashboard = () => {
   const [stats, setStats] = useState(null);
   const [autoMode, setAutoMode] = useState(false);
 
+  /* ================= LOAD STATS ================= */
   const loadStats = async () => {
     const s = await getAllPoolStats();
     setStats(s);
@@ -29,12 +30,11 @@ const LenderDashboard = () => {
 
   /* ================= AUTO CALC ================= */
   const totalNum = Number(amount || 0);
-  const lowAmt = (totalNum * 0.5).toFixed(2);
-  const medAmt = (totalNum * 0.3).toFixed(2);
-  const highAmt = (totalNum * 0.2).toFixed(2);
+  const lowAmt = (totalNum * 0.5).toFixed(4);
+  const medAmt = (totalNum * 0.3).toFixed(4);
+  const highAmt = (totalNum * 0.2).toFixed(4);
 
-  /* ================= HANDLERS ================= */
-
+  /* ================= DEPOSIT ================= */
   const handleDeposit = async () => {
     if (!amount || Number(amount) <= 0) return alert("Enter valid amount");
 
@@ -43,8 +43,10 @@ const LenderDashboard = () => {
         await depositToPool(lowAmt, RiskPool.LOW_RISK);
         await depositToPool(medAmt, RiskPool.MEDIUM_RISK);
         await depositToPool(highAmt, RiskPool.HIGH_RISK);
+        alert("Auto Allocation Successful!");
       } else {
         await depositToPool(amount, selectedPool);
+        alert("Deposit Successful!");
       }
 
       setAmount("");
@@ -55,15 +57,21 @@ const LenderDashboard = () => {
     }
   };
 
+  /* ================= WITHDRAW ================= */
   const handleWithdraw = async () => {
     if (!amount || Number(amount) <= 0) return alert("Enter valid amount");
-    await withdrawFromPool(amount, selectedPool);
-    setAmount("");
-    loadStats();
+
+    try {
+      await withdrawFromPool(amount, selectedPool);
+      setAmount("");
+      loadStats();
+    } catch (err) {
+      console.error(err);
+      alert("Withdraw failed");
+    }
   };
 
   /* ================= WALLET ================= */
-
   if (!account) {
     return (
       <div className="p-6">
@@ -89,10 +97,10 @@ const LenderDashboard = () => {
           checked={autoMode}
           onChange={() => setAutoMode(!autoMode)}
         />
-        Auto Allocation (50 / 30 / 20)
+        Auto Allocation (50% Low / 30% Medium / 20% High)
       </label>
 
-      {/* POOL SELECT - ONLY MANUAL */}
+      {/* POOL SELECT - MANUAL ONLY */}
       {!autoMode && (
         <select
           value={selectedPool}
@@ -130,16 +138,18 @@ const LenderDashboard = () => {
           disabled={loading}
           className="bg-green-600 text-white px-4 py-2 rounded"
         >
-          Deposit
+          {autoMode ? "Auto Deposit" : "Deposit"}
         </button>
 
-        <button
-          onClick={handleWithdraw}
-          disabled={loading}
-          className="bg-yellow-600 text-white px-4 py-2 rounded"
-        >
-          Withdraw
-        </button>
+        {!autoMode && (
+          <button
+            onClick={handleWithdraw}
+            disabled={loading}
+            className="bg-yellow-600 text-white px-4 py-2 rounded"
+          >
+            Withdraw
+          </button>
+        )}
 
         <button
           onClick={claimInterest}

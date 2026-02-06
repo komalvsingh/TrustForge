@@ -54,7 +54,7 @@ const Register = () => {
     try {
       setLoading(true);
       const existingAddress = await getAddressByUsername(username);
-      
+
       if (existingAddress) {
         setError("This username is already taken");
       } else {
@@ -96,16 +96,16 @@ const Register = () => {
 
       // Register username
       await registerUsername(username);
-      
+
       setSuccess("Username registered successfully!");
-      
+
       // Redirect to dashboard after 2 seconds
       setTimeout(() => {
-        navigate("/dashboard");
+        navigate("/home");
       }, 2000);
     } catch (error) {
       console.error("Registration error:", error);
-      
+
       // Parse error message
       if (error.message.includes("already registered")) {
         setError("You have already registered a username");
@@ -123,7 +123,7 @@ const Register = () => {
 
   // If user already has username, redirect
   if (hasUsername && !userLoading) {
-    navigate("/dashboard");
+    navigate("/home");
     return null;
   }
 
@@ -143,7 +143,7 @@ const Register = () => {
           <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-blue-500/5 opacity-50"></div>
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl"></div>
           <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl"></div>
-          
+
           <div className="relative">
             {/* Header */}
             <div className="text-center mb-10">
@@ -251,7 +251,7 @@ const Register = () => {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Validation Message */}
                 {validationError && (
                   <p className="text-red-400 text-sm mt-3 flex items-center animate-shake">
@@ -269,7 +269,7 @@ const Register = () => {
                     {validationError}
                   </p>
                 )}
-                
+
                 {/* Success Message */}
                 {success && (
                   <p className="text-purple-400 text-sm mt-3 flex items-center animate-fade-in">
@@ -381,7 +381,7 @@ const Register = () => {
               <p className="text-sm text-gray-400">
                 Already have a username?{" "}
                 <button
-                  onClick={() => navigate("/dashboard")}
+                  onClick={() => navigate("/home")}
                   className="text-blue-400 hover:text-blue-300 font-medium transition-colors hover:underline"
                 >
                   Go to Dashboard →
