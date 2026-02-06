@@ -2,11 +2,16 @@ import { useEffect, useState } from "react";
 import { useDAO } from "../context/DAOContext";
 import { useBlockchain } from "../context/BlockchainContext";
 import ProposalCard from "../components/ProposalCard";
-import CreateProposalModal from "../components/CreateProposal";
+import CreateProposal from "../components/CreateProposal";
 
 const DAO = () => {
-  const { getAllProposals, fetchProposalCount, getVotingPower, loading } =
-    useDAO();
+  const {
+    dao,
+    getAllProposals,
+    fetchProposalCount,
+    getVotingPower,
+    loading,
+  } = useDAO();
 
   const { account } = useBlockchain();
 
@@ -14,24 +19,22 @@ const DAO = () => {
   const [votingPower, setVotingPower] = useState("0");
   const [showCreate, setShowCreate] = useState(false);
 
-  const { dao } = useDAO();
+  const loadDAO = async () => {
+    if (!dao) return;
+
+    await fetchProposalCount();
+    const list = await getAllProposals();
+    setProposals(list);
+
+    if (account) {
+      const power = await getVotingPower();
+      setVotingPower(power);
+    }
+  };
 
   useEffect(() => {
-    if (!dao) return; // ⛔ wait for DAO init
-
-    const loadDAO = async () => {
-      await fetchProposalCount();
-      const list = await getAllProposals();
-      setProposals(list);
-
-      if (account) {
-        const power = await getVotingPower();
-        setVotingPower(power);
-      }
-    };
-
     loadDAO();
-  }, [account, dao]); // 👈 CRITICAL
+  }, [account, dao]); // re-run when wallet or DAO changes
 
   return (
     <div className="max-w-5xl mx-auto p-6">
@@ -69,8 +72,14 @@ const DAO = () => {
         ))}
       </div>
 
+      {/* Create Proposal Modal */}
       {showCreate && (
-        <CreateProposalModal onClose={() => setShowCreate(false)} />
+        <CreateProposal
+          onCreated={() => {
+            setShowCreate(false);
+            loadDAO(); // 🔥 refresh list after creation
+          }}
+        />
       )}
     </div>
   );
