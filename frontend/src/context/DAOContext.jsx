@@ -7,7 +7,7 @@ import TrustForgeDAOABI from "../abis/TrustForgeDAO.json";
 // TrustForge ABI (needed to encode calldata)
 import TrustForgeABI from "../abis/TrustForge.json";
 
-// DAO address
+// DAO address (your deployed DAO)
 const DAO_ADDRESS = "0x30094799c55bf1194D046DBe0D9CDef41a6eC076";
 
 const DAOContext = createContext();

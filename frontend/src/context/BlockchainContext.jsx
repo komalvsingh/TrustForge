@@ -16,6 +16,13 @@ const RiskPool = {
   HIGH_RISK: 2
 };
 
+// Loan Status Enum (matching contract)
+const LoanStatus = {
+  ACTIVE: 0,
+  REPAID: 1,
+  DEFAULTED: 2
+};
+
 const BlockchainContext = createContext();
 
 export const BlockchainProvider = ({ children }) => {
@@ -339,7 +346,7 @@ export const BlockchainProvider = ({ children }) => {
   };
 
   /* ===================================================================
-     USERNAME FUNCTIONS (NEW IN V2)
+     USERNAME FUNCTIONS (V2)
      =================================================================== */
 
   /**
@@ -389,7 +396,7 @@ export const BlockchainProvider = ({ children }) => {
   };
 
   /* ===================================================================
-     LENDER FUNCTIONS (UPDATED FOR RISK POOLS)
+     LENDER FUNCTIONS (RISK POOLS)
      =================================================================== */
 
   /**
@@ -452,7 +459,7 @@ export const BlockchainProvider = ({ children }) => {
   };
 
   /* ===================================================================
-     BORROWER FUNCTIONS (UPDATED FOR V2)
+     BORROWER FUNCTIONS (V2)
      =================================================================== */
 
   /**
@@ -515,7 +522,7 @@ export const BlockchainProvider = ({ children }) => {
   };
 
   /* ===================================================================
-     TRUST & SOCIAL FUNCTIONS (UPDATED FOR V2)
+     TRUST & SOCIAL FUNCTIONS (V2)
      =================================================================== */
 
   /**
@@ -579,7 +586,7 @@ export const BlockchainProvider = ({ children }) => {
   };
 
   /* ===================================================================
-     READ/VIEW FUNCTIONS (UPDATED FOR V2)
+     READ/VIEW FUNCTIONS (V2)
      =================================================================== */
 
   /**
@@ -624,6 +631,7 @@ export const BlockchainProvider = ({ children }) => {
         duration: loan.duration.toString(),
         status: loan.status, // 0=ACTIVE, 1=REPAID, 2=DEFAULTED
         pool: loan.pool, // 0=LOW, 1=MED, 2=HIGH
+        riskPool: loan.pool, // Alias for consistency
         isOverdue: loan.isOverdue,
       };
     } catch (error) {
@@ -747,8 +755,8 @@ export const BlockchainProvider = ({ children }) => {
         startTime: loan.startTime.toString(),
         dueDate: loan.dueDate.toString(),
         duration: loan.duration.toString(),
-        status: loan.status,
-        riskPool: loan.riskPool,
+        status: loan.status, // 0=ACTIVE, 1=REPAID, 2=DEFAULTED
+        riskPool: loan.riskPool, // 0=LOW, 1=MED, 2=HIGH
       }));
     } catch (error) {
       console.error("Error getting loan history:", error);
@@ -772,6 +780,16 @@ export const BlockchainProvider = ({ children }) => {
         minLoanDuration,
         maxLoanDuration,
         gracePeriod,
+        lowRiskThreshold,
+        mediumRiskThreshold,
+        trustIncreasePerRepayment,
+        trustDecreaseOnDefault,
+        vouchPenaltyOnDefault,
+        maxVouchesPerUser,
+        defaultCooldownPeriod,
+        lowTrustLimit,
+        medTrustLimit,
+        highTrustLimit,
       ] = await Promise.all([
         trustForge.INITIAL_TRUST_SCORE(),
         trustForge.MAX_TRUST_SCORE(),
@@ -782,6 +800,16 @@ export const BlockchainProvider = ({ children }) => {
         trustForge.MIN_LOAN_DURATION(),
         trustForge.MAX_LOAN_DURATION(),
         trustForge.GRACE_PERIOD(),
+        trustForge.LOW_RISK_THRESHOLD(),
+        trustForge.MEDIUM_RISK_THRESHOLD(),
+        trustForge.TRUST_INCREASE_PER_REPAYMENT(),
+        trustForge.TRUST_DECREASE_ON_DEFAULT(),
+        trustForge.VOUCH_PENALTY_ON_DEFAULT(),
+        trustForge.MAX_VOUCHES_PER_USER(),
+        trustForge.DEFAULT_COOLDOWN_PERIOD(),
+        trustForge.LOW_TRUST_LIMIT(),
+        trustForge.MED_TRUST_LIMIT(),
+        trustForge.HIGH_TRUST_LIMIT(),
       ]);
 
       return {
@@ -794,6 +822,16 @@ export const BlockchainProvider = ({ children }) => {
         minLoanDuration: minLoanDuration.toString(),
         maxLoanDuration: maxLoanDuration.toString(),
         gracePeriod: gracePeriod.toString(),
+        lowRiskThreshold: lowRiskThreshold.toString(),
+        mediumRiskThreshold: mediumRiskThreshold.toString(),
+        trustIncreasePerRepayment: trustIncreasePerRepayment.toString(),
+        trustDecreaseOnDefault: trustDecreaseOnDefault.toString(),
+        vouchPenaltyOnDefault: vouchPenaltyOnDefault.toString(),
+        maxVouchesPerUser: maxVouchesPerUser.toString(),
+        defaultCooldownPeriod: defaultCooldownPeriod.toString(),
+        lowTrustLimit: formatEther(lowTrustLimit),
+        medTrustLimit: formatEther(medTrustLimit),
+        highTrustLimit: formatEther(highTrustLimit),
       };
     } catch (error) {
       console.error("Error getting constants:", error);
@@ -801,8 +839,44 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Get interest rates for a specific pool
+   * @param {number} pool - Risk pool (0=LOW, 1=MEDIUM, 2=HIGH)
+   */
+  const getPoolInterestRates = async (pool = RiskPool.LOW_RISK) => {
+    if (!trustForge) return null;
+    try {
+      let baseRate, maxRate;
+      
+      if (pool === RiskPool.LOW_RISK) {
+        [baseRate, maxRate] = await Promise.all([
+          trustForge.BASE_INTEREST_RATE_LOW(),
+          trustForge.MAX_INTEREST_RATE_LOW(),
+        ]);
+      } else if (pool === RiskPool.MEDIUM_RISK) {
+        [baseRate, maxRate] = await Promise.all([
+          trustForge.BASE_INTEREST_RATE_MED(),
+          trustForge.MAX_INTEREST_RATE_MED(),
+        ]);
+      } else {
+        [baseRate, maxRate] = await Promise.all([
+          trustForge.BASE_INTEREST_RATE_HIGH(),
+          trustForge.MAX_INTEREST_RATE_HIGH(),
+        ]);
+      }
+
+      return {
+        baseRate: baseRate.toString(), // in basis points (100 = 1%)
+        maxRate: maxRate.toString(), // in basis points
+      };
+    } catch (error) {
+      console.error("Error getting pool interest rates:", error);
+      return null;
+    }
+  };
+
   /* ===================================================================
-     ADMIN FUNCTIONS (UPDATED FOR V2)
+     ADMIN FUNCTIONS (V2)
      =================================================================== */
 
   /**
@@ -956,12 +1030,12 @@ export const BlockchainProvider = ({ children }) => {
         mintTFX,
         burnTFX,
         
-        // Username Functions (NEW)
+        // Username Functions
         registerUsername,
         getAddressByUsername,
         hasUsernameRegistered,
         
-        // Lender Functions (Updated for Risk Pools)
+        // Lender Functions (Risk Pools)
         depositToPool,
         withdrawFromPool,
         claimInterest,
@@ -986,6 +1060,7 @@ export const BlockchainProvider = ({ children }) => {
         getLenderInfo,
         getLoanHistory,
         getConstants,
+        getPoolInterestRates,
         
         // Admin Functions
         updateTrustParameters,
@@ -999,6 +1074,7 @@ export const BlockchainProvider = ({ children }) => {
         TFX_ADDRESS,
         TRUSTFORGE_ADDRESS,
         RiskPool, // Export enum for use in components
+        LoanStatus, // Export enum for use in components
       }}
     >
       {children}
@@ -1014,5 +1090,5 @@ export const useBlockchain = () => {
   return context;
 };
 
-// Export RiskPool enum for use in components
-export { RiskPool };
+// Export enums for use in components
+export { RiskPool, LoanStatus };
