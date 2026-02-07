@@ -135,7 +135,7 @@ const UserProfile = () => {
               <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
                 <UserCheck className="w-5 h-5 text-blue-400" />
               </div>
-              <h1 className="text-4xl md:text-5xl font-black tracking-tight uppercase">User Dossier</h1>
+              <h1 className="text-4xl md:text-5xl font-black tracking-tight uppercase">User Profile</h1>
             </div>
             {/* <div className="flex items-center gap-3 text-gray-400 font-mono text-xs tracking-widest px-1">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
