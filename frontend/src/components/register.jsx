@@ -381,7 +381,7 @@ const Register = () => {
               <p className="text-sm text-gray-400">
                 Already have a username?{" "}
                 <button
-                  onClick={() => navigate("/home")}
+                  onClick={() => navigate("/")}
                   className="text-blue-400 hover:text-blue-300 font-medium transition-colors hover:underline"
                 >
                   Go to Dashboard →
