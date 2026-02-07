@@ -13,7 +13,7 @@ import Register from "./components/register";
 import UserProfile from "./components/UserProfile";
 import VouchingSystem from "./pages/VouchingSystem";
 import { VaultProvider } from "./context/VaultContext";
-import VaultDashboard from "./pages/VaultDashBoard";
+import VaultDashboard from "./pages/VaultDashboard";
 import VaultAdmin from "./pages/VaultAdmin";
 function App() {
   return (
