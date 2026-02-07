@@ -34,7 +34,7 @@ const Navbar = () => {
     { path: "/borrow", label: "Borrow", icon: HandCoins },
     { path: "/dao", label: "DAO", icon: Coins },
     { path: "/vouch", label: "Vouch", icon: ToyBrick },
-
+    { path: "/vault", label: "Vault", icon: LayoutDashboard },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -59,7 +59,6 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-           <navbar />
           <div className="hidden lg:flex items-center gap-2 flex-1 justify-center">
             {navLinks.map((link) => {
               const Icon = link.icon;
