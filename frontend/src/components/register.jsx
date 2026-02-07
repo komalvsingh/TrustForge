@@ -101,7 +101,7 @@ const Register = () => {
 
       // Redirect to dashboard after 2 seconds
       setTimeout(() => {
-        navigate("/home");
+        navigate("/");
       }, 2000);
     } catch (error) {
       console.error("Registration error:", error);
@@ -123,7 +123,7 @@ const Register = () => {
 
   // If user already has username, redirect
   if (hasUsername && !userLoading) {
-    navigate("/home");
+    navigate("/");
     return null;
   }
 
