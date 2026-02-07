@@ -4,7 +4,7 @@ import { DAOProvider } from "./context/DAOContext";
 import DAO from "./pages/DAO"
 import LenderDashboard from "./pages/Lender/LenderDashBoard";
 
-import Home from "./pages/home";
+import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Lend from "./pages/Lend";
 import BorrowerDashboard from "./pages/borrower/BorrowerDashboard";
