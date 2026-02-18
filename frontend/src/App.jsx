@@ -4,7 +4,7 @@ import { DAOProvider } from "./context/DAOContext";
 import DAO from "./pages/DAO"
 import LenderDashboard from "./pages/Lender/LenderDashBoard";
 
-import Home from "./pages/home";
+import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Lend from "./pages/Lend";
 import BorrowerDashboard from "./pages/borrower/BorrowerDashboard";
@@ -13,7 +13,7 @@ import Register from "./components/register";
 import UserProfile from "./components/UserProfile";
 import VouchingSystem from "./pages/VouchingSystem";
 import { VaultProvider } from "./context/VaultContext";
-import VaultDashboard from "./pages/VaultDashBoard";
+import VaultDashboard from "./pages/VaultDashboard";
 import VaultAdmin from "./pages/VaultAdmin";
 function App() {
   return (

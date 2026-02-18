@@ -101,7 +101,7 @@ const Register = () => {
 
       // Redirect to dashboard after 2 seconds
       setTimeout(() => {
-        navigate("/home");
+        navigate("/");
       }, 2000);
     } catch (error) {
       console.error("Registration error:", error);
@@ -123,7 +123,7 @@ const Register = () => {
 
   // If user already has username, redirect
   if (hasUsername && !userLoading) {
-    navigate("/home");
+    navigate("/");
     return null;
   }
 
@@ -381,7 +381,7 @@ const Register = () => {
               <p className="text-sm text-gray-400">
                 Already have a username?{" "}
                 <button
-                  onClick={() => navigate("/home")}
+                  onClick={() => navigate("/")}
                   className="text-blue-400 hover:text-blue-300 font-medium transition-colors hover:underline"
                 >
                   Go to Dashboard →
