@@ -1,8 +1,8 @@
 {
   "network": "sepolia",
-  "vaultAddress": "0x957cdF003B9be26812235E40449DA854b0fC0f5F",
+  "vaultAddress": "0x1023a17d0E6094cc83Aa38791dbd094856c229fA",
   "usdcAddress": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
   "tfxAddress": "0x4b821BBc5C7327A400486eFB61DA250979e32b3B",
   "deployer": "0x4EAD8c724ECFcAE1083920490cB3b337A3226927",
-  "timestamp": "2026-02-07T02:04:52.012Z"
+  "timestamp": "2026-02-18T17:32:51.027Z"
 }

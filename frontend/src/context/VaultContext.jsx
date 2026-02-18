@@ -5,22 +5,27 @@ import { BrowserProvider, Contract, formatUnits, parseUnits } from "ethers";
 import TFXReserveVaultABI from "../abis/TFXReserveVault.json";
 
 // Addresses
-const VAULT_ADDRESS = "0x957cdF003B9be26812235E40449DA854b0fC0f5F";
-const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
-const TFX_ADDRESS = "0x4b821BBc5C7327A400486eFB61DA250979e32b3B";
+const VAULT_ADDRESS = "0x1023a17d0E6094cc83Aa38791dbd094856c229fA";
+const USDC_ADDRESS  = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
+const TFX_ADDRESS   = "0x4b821BBc5C7327A400486eFB61DA250979e32b3B";
+
+// Decimals — centralised so any future change is one-line
+const USDC_DECIMALS = 6;
+const TFX_DECIMALS  = 18;
 
 const VaultContext = createContext();
 
 export const VaultProvider = ({ children }) => {
-  const [account, setAccount] = useState(null);
+  const [account,  setAccount]  = useState(null);
   const [provider, setProvider] = useState(null);
-  const [signer, setSigner] = useState(null);
-  const [vault, setVault] = useState(null);
-  const [usdc, setUsdc] = useState(null);
-  const [tfx, setTfx] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [signer,   setSigner]   = useState(null);
+  const [vault,    setVault]    = useState(null);
+  const [usdc,     setUsdc]     = useState(null);
+  const [tfx,      setTfx]      = useState(null);
+  const [loading,  setLoading]  = useState(false);
 
-  // Connect wallet
+  // ─── Wallet ─────────────────────────────────────────────────────────────────
+
   const connectWallet = async () => {
     if (!window.ethereum) {
       alert("Please install MetaMask to use this application");
@@ -29,20 +34,54 @@ export const VaultProvider = ({ children }) => {
 
     try {
       setLoading(true);
+
+      // ── Step 1: Force switch to Sepolia ─────────────────────────────────────
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0xaa36a7" }], // Sepolia chain ID
+        });
+      } catch (switchError) {
+        // Error code 4902 = Sepolia not added to MetaMask yet → add it
+        if (switchError.code === 4902) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: "0xaa36a7",
+                  chainName: "Sepolia Test Network",
+                  nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+                  rpcUrls: ["https://rpc.sepolia.org"],
+                  blockExplorerUrls: ["https://sepolia.etherscan.io"],
+                },
+              ],
+            });
+          } catch (addError) {
+            throw new Error("Failed to add Sepolia network to MetaMask: " + addError.message);
+          }
+        } else {
+          // User rejected the network switch
+          throw new Error("Please switch to Sepolia network to use this app.");
+        }
+      }
+
+      // ── Step 2: Request wallet accounts ─────────────────────────────────────
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });
 
-      const provider = new BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
+      // ── Step 3: Confirm we're actually on Sepolia now ────────────────────────
+      const chainId = await window.ethereum.request({ method: "eth_chainId" });
+      if (chainId !== "0xaa36a7") {
+        throw new Error("Wrong network. Please switch to Sepolia and try again.");
+      }
 
-      // Handle both ABI formats
-      const vaultABI = TFXReserveVaultABI.abi || TFXReserveVaultABI;
+      // ── Step 4: Init provider, signer, contracts ─────────────────────────────
+      const _provider = new BrowserProvider(window.ethereum);
+      const _signer   = await _provider.getSigner();
+      const vaultABI  = TFXReserveVaultABI.abi || TFXReserveVaultABI;
 
-      // Initialize contracts
-      const vaultContract = new Contract(VAULT_ADDRESS, vaultABI, signer);
-
-      // For USDC and TFX, we just need basic ERC20 interface
       const erc20ABI = [
         "function balanceOf(address) view returns (uint256)",
         "function allowance(address owner, address spender) view returns (uint256)",
@@ -50,20 +89,17 @@ export const VaultProvider = ({ children }) => {
         "function transfer(address to, uint256 amount) returns (bool)",
         "function decimals() view returns (uint8)",
         "function symbol() view returns (string)",
-        "function name() view returns (string)"
+        "function name() view returns (string)",
       ];
 
-      const usdcContract = new Contract(USDC_ADDRESS, erc20ABI, signer);
-      const tfxContract = new Contract(TFX_ADDRESS, erc20ABI, signer);
-
       setAccount(accounts[0]);
-      setProvider(provider);
-      setSigner(signer);
-      setVault(vaultContract);
-      setUsdc(usdcContract);
-      setTfx(tfxContract);
+      setProvider(_provider);
+      setSigner(_signer);
+      setVault(new Contract(VAULT_ADDRESS, vaultABI, _signer));
+      setUsdc(new Contract(USDC_ADDRESS,  erc20ABI, _signer));
+      setTfx(new Contract(TFX_ADDRESS,   erc20ABI, _signer));
 
-      console.log("Vault wallet connected:", accounts[0]);
+      console.log("✅ Wallet connected on Sepolia:", accounts[0]);
     } catch (error) {
       console.error("Error connecting wallet:", error);
       throw error;
@@ -72,7 +108,6 @@ export const VaultProvider = ({ children }) => {
     }
   };
 
-  // Disconnect wallet
   const disconnectWallet = () => {
     setAccount(null);
     setProvider(null);
@@ -82,17 +117,13 @@ export const VaultProvider = ({ children }) => {
     setTfx(null);
   };
 
-  // Auto connect on mount
+  // Auto-connect on mount
   useEffect(() => {
     const autoConnect = async () => {
       if (window.ethereum) {
         try {
-          const accounts = await window.ethereum.request({
-            method: "eth_accounts",
-          });
-          if (accounts.length > 0) {
-            await connectWallet();
-          }
+          const accounts = await window.ethereum.request({ method: "eth_accounts" });
+          if (accounts.length > 0) await connectWallet();
         } catch (error) {
           console.error("Auto-connect failed:", error);
         }
@@ -101,134 +132,92 @@ export const VaultProvider = ({ children }) => {
     autoConnect();
   }, []);
 
-  // Listen for account changes
+  // Account / chain listeners
   useEffect(() => {
-    if (window.ethereum) {
-      const handleAccountsChanged = (accounts) => {
-        if (accounts.length === 0) {
-          disconnectWallet();
-        } else {
-          connectWallet();
-        }
-      };
+    if (!window.ethereum) return;
 
-      const handleChainChanged = () => {
-        window.location.reload();
-      };
+    const handleAccountsChanged = (accounts) => {
+      if (accounts.length === 0) disconnectWallet();
+      else connectWallet();
+    };
+    const handleChainChanged = () => window.location.reload();
 
-      window.ethereum.on("accountsChanged", handleAccountsChanged);
-      window.ethereum.on("chainChanged", handleChainChanged);
+    window.ethereum.on("accountsChanged", handleAccountsChanged);
+    window.ethereum.on("chainChanged",    handleChainChanged);
 
-      return () => {
-        window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
-        window.ethereum.removeListener("chainChanged", handleChainChanged);
-      };
-    }
+    return () => {
+      window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+      window.ethereum.removeListener("chainChanged",    handleChainChanged);
+    };
   }, []);
 
-  /* ===================================================================
-     USDC FUNCTIONS
-     =================================================================== */
+  // ─── USDC helpers ────────────────────────────────────────────────────────────
 
-  /**
-   * Get USDC balance (6 decimals)
-   */
   const getUSDCBalance = async (address) => {
     if (!usdc) return "0";
     try {
-      const userAddress = address || account;
-      const bal = await usdc.balanceOf(userAddress);
-      return formatUnits(bal, 6);
-    } catch (error) {
-      console.error("Error getting USDC balance:", error);
+      const bal = await usdc.balanceOf(address || account);
+      return formatUnits(bal, USDC_DECIMALS);
+    } catch (e) {
+      console.error("getUSDCBalance:", e);
       return "0";
     }
   };
 
-  /**
-   * Approve USDC for vault
-   */
   const approveUSDC = async (amount) => {
     if (!usdc) throw new Error("USDC contract not initialized");
-    try {
-      const tx = await usdc.approve(VAULT_ADDRESS, parseUnits(amount, 6));
-      await tx.wait();
-      return tx;
-    } catch (error) {
-      console.error("Error approving USDC:", error);
-      throw error;
-    }
+    const tx = await usdc.approve(VAULT_ADDRESS, parseUnits(amount, USDC_DECIMALS));
+    await tx.wait();
+    return tx;
   };
 
-  /**
-   * Get USDC allowance for vault
-   */
   const getUSDCAllowance = async () => {
     if (!usdc || !account) return "0";
     try {
       const allowance = await usdc.allowance(account, VAULT_ADDRESS);
-      return formatUnits(allowance, 6);
-    } catch (error) {
-      console.error("Error getting USDC allowance:", error);
+      return formatUnits(allowance, USDC_DECIMALS);
+    } catch (e) {
+      console.error("getUSDCAllowance:", e);
       return "0";
     }
   };
 
-  /* ===================================================================
-     TFX FUNCTIONS (for vault operations)
-     =================================================================== */
+  // ─── TFX helpers ─────────────────────────────────────────────────────────────
 
-  /**
-   * Get TFX balance (18 decimals)
-   */
   const getTFXBalance = async (address) => {
     if (!tfx) return "0";
     try {
-      const userAddress = address || account;
-      const bal = await tfx.balanceOf(userAddress);
-      return formatUnits(bal, 18);
-    } catch (error) {
-      console.error("Error getting TFX balance:", error);
+      const bal = await tfx.balanceOf(address || account);
+      return formatUnits(bal, TFX_DECIMALS);
+    } catch (e) {
+      console.error("getTFXBalance:", e);
       return "0";
     }
   };
 
-  /**
-   * Approve TFX for vault
-   */
   const approveTFX = async (amount) => {
     if (!tfx) throw new Error("TFX contract not initialized");
-    try {
-      const tx = await tfx.approve(VAULT_ADDRESS, parseUnits(amount, 18));
-      await tx.wait();
-      return tx;
-    } catch (error) {
-      console.error("Error approving TFX:", error);
-      throw error;
-    }
+    const tx = await tfx.approve(VAULT_ADDRESS, parseUnits(amount, TFX_DECIMALS));
+    await tx.wait();
+    return tx;
   };
 
-  /**
-   * Get TFX allowance for vault
-   */
   const getTFXAllowance = async () => {
     if (!tfx || !account) return "0";
     try {
       const allowance = await tfx.allowance(account, VAULT_ADDRESS);
-      return formatUnits(allowance, 18);
-    } catch (error) {
-      console.error("Error getting TFX allowance:", error);
+      return formatUnits(allowance, TFX_DECIMALS);
+    } catch (e) {
+      console.error("getTFXAllowance:", e);
       return "0";
     }
   };
 
-  /* ===================================================================
-     VAULT CORE FUNCTIONS
-     =================================================================== */
+  // ─── Vault core ──────────────────────────────────────────────────────────────
 
   /**
-   * Buy TFX with USDC
-   * @param {string} usdcAmount - Amount of USDC to spend (human readable, e.g., "100")
+   * Buy TFX with USDC (1:1 after decimal adjustment in contract).
+   * @param {string} usdcAmount  Human-readable USDC, e.g. "10"
    */
   const buyTFX = async (usdcAmount) => {
     if (!vault) throw new Error("Vault contract not initialized");
@@ -236,35 +225,42 @@ export const VaultProvider = ({ children }) => {
     try {
       setLoading(true);
 
-      // Pre-flight checks
+      const usdcAmountWei = parseUnits(usdcAmount, USDC_DECIMALS);
+
+      // ── Pre-flight checks ──────────────────────────────────────────────────
+
+      // 1. User has enough USDC
       const usdcBal = await usdc.balanceOf(account);
-      const usdcAmountWei = parseUnits(usdcAmount, 6);
-
       if (usdcBal < usdcAmountWei) {
-        throw new Error(`Insufficient USDC balance. You have ${formatUnits(usdcBal, 6)} USDC`);
+        throw new Error(
+          `Insufficient USDC balance. You have ${formatUnits(usdcBal, USDC_DECIMALS)} USDC`
+        );
       }
 
-      // Check vault has enough TFX
-      const vaultTfxBal = await tfx.balanceOf(VAULT_ADDRESS);
-      const expectedTfx = parseUnits(usdcAmount, 6); // 1:1 ratio, same numeric value
-
-      if (vaultTfxBal < expectedTfx) {
-        throw new Error(`Vault has insufficient TFX liquidity. Vault has ${formatUnits(vaultTfxBal, 18)} TFX`);
+      // 2. Vault has enough TFX
+      //    FIX: at 1:1 rate, buying N USDC yields N TFX.
+      //    TFX is 18 decimals, so we must check against parseUnits(usdcAmount, TFX_DECIMALS).
+      //    Old code used parseUnits(usdcAmount, 6) which was 1e12x too small.
+      const vaultTfxBal   = await tfx.balanceOf(VAULT_ADDRESS);
+      const expectedTFXWei = parseUnits(usdcAmount, TFX_DECIMALS); // ✅ FIXED (was USDC_DECIMALS)
+      if (vaultTfxBal < expectedTFXWei) {
+        throw new Error(
+          `Vault has insufficient TFX liquidity. Vault has ${formatUnits(vaultTfxBal, TFX_DECIMALS)} TFX`
+        );
       }
 
-      // Check if paused
-      const paused = await vault.paused();
-      if (paused) {
-        throw new Error("Vault is currently paused");
-      }
+      // 3. Vault is not paused
+      if (await vault.paused()) throw new Error("Vault is currently paused");
 
-      // Check minimum
+      // 4. Above minimum transaction
       const minTx = await vault.minTransactionAmount();
       if (usdcAmountWei < minTx) {
-        throw new Error(`Amount below minimum. Minimum is ${formatUnits(minTx, 6)} USDC`);
+        throw new Error(
+          `Amount below minimum. Minimum is ${formatUnits(minTx, USDC_DECIMALS)} USDC`
+        );
       }
 
-      // Approve USDC first
+      // ── Approve if needed ─────────────────────────────────────────────────
       const currentAllowance = await usdc.allowance(account, VAULT_ADDRESS);
       if (currentAllowance < usdcAmountWei) {
         console.log("Approving USDC...");
@@ -273,36 +269,24 @@ export const VaultProvider = ({ children }) => {
         console.log("USDC approved");
       }
 
-      // Buy TFX
+      // ── Execute ───────────────────────────────────────────────────────────
       console.log("Buying TFX...");
       const tx = await vault.buyTFX(usdcAmountWei);
       await tx.wait();
       console.log("TFX purchase successful!");
-
       return tx;
+
     } catch (error) {
-      console.error("Error buying TFX:", error);
-
-      // Extract meaningful error message
-      let errorMessage = "Failed to buy TFX";
-
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.reason) {
-        errorMessage = error.reason;
-      } else if (error.data?.message) {
-        errorMessage = error.data.message;
-      }
-
-      throw new Error(errorMessage);
+      console.error("buyTFX error:", error);
+      throw new Error(error.reason || error.data?.message || error.message || "Failed to buy TFX");
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * Sell TFX for USDC
-   * @param {string} tfxAmount - Amount of TFX to sell (human readable, e.g., "100")
+   * Sell TFX for USDC (1:1 after decimal adjustment in contract).
+   * @param {string} tfxAmount  Human-readable TFX, e.g. "10"
    */
   const sellTFX = async (tfxAmount) => {
     if (!vault) throw new Error("Vault contract not initialized");
@@ -310,29 +294,33 @@ export const VaultProvider = ({ children }) => {
     try {
       setLoading(true);
 
-      // Pre-flight checks
+      const tfxAmountWei = parseUnits(tfxAmount, TFX_DECIMALS);
+
+      // ── Pre-flight checks ──────────────────────────────────────────────────
+
+      // 1. User has enough TFX
       const tfxBal = await tfx.balanceOf(account);
-      const tfxAmountWei = parseUnits(tfxAmount, 18);
-
       if (tfxBal < tfxAmountWei) {
-        throw new Error(`Insufficient TFX balance. You have ${formatUnits(tfxBal, 18)} TFX`);
+        throw new Error(
+          `Insufficient TFX balance. You have ${formatUnits(tfxBal, TFX_DECIMALS)} TFX`
+        );
       }
 
-      // Check vault has enough USDC
-      const vaultUsdcBal = await usdc.balanceOf(VAULT_ADDRESS);
-      const expectedUsdc = parseUnits(tfxAmount, 6); // 1:1 ratio, same numeric value
-
-      if (vaultUsdcBal < expectedUsdc) {
-        throw new Error(`Vault has insufficient USDC liquidity. Vault has ${formatUnits(vaultUsdcBal, 6)} USDC`);
+      // 2. Vault has enough USDC
+      //    At 1:1 rate, selling N TFX yields N USDC.
+      //    USDC is 6 decimals, so expected = parseUnits(tfxAmount, USDC_DECIMALS).
+      const vaultUsdcBal    = await usdc.balanceOf(VAULT_ADDRESS);
+      const expectedUSDCWei = parseUnits(tfxAmount, USDC_DECIMALS); // ✅ explicit & correct
+      if (vaultUsdcBal < expectedUSDCWei) {
+        throw new Error(
+          `Vault has insufficient USDC liquidity. Vault has ${formatUnits(vaultUsdcBal, USDC_DECIMALS)} USDC`
+        );
       }
 
-      // Check if paused
-      const paused = await vault.paused();
-      if (paused) {
-        throw new Error("Vault is currently paused");
-      }
+      // 3. Vault is not paused
+      if (await vault.paused()) throw new Error("Vault is currently paused");
 
-      // Approve TFX for vault first
+      // ── Approve if needed ─────────────────────────────────────────────────
       const currentAllowance = await tfx.allowance(account, VAULT_ADDRESS);
       if (currentAllowance < tfxAmountWei) {
         console.log("Approving TFX...");
@@ -341,122 +329,95 @@ export const VaultProvider = ({ children }) => {
         console.log("TFX approved");
       }
 
-      // Sell TFX
+      // ── Execute ───────────────────────────────────────────────────────────
       console.log("Selling TFX...");
       const tx = await vault.sellTFX(tfxAmountWei);
       await tx.wait();
       console.log("TFX sale successful!");
-
       return tx;
+
     } catch (error) {
-      console.error("Error selling TFX:", error);
-
-      // Extract meaningful error message
-      let errorMessage = "Failed to sell TFX";
-
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.reason) {
-        errorMessage = error.reason;
-      } else if (error.data?.message) {
-        errorMessage = error.data.message;
-      }
-
-      throw new Error(errorMessage);
+      console.error("sellTFX error:", error);
+      throw new Error(error.reason || error.data?.message || error.message || "Failed to sell TFX");
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * Calculate how much TFX user will receive for USDC amount
+   * Preview: how much TFX will the user receive for a given USDC amount?
+   * Contract returns TFX values in 18 decimals (after the contract decimal fix).
    */
   const calculateBuyTFX = async (usdcAmount) => {
     if (!vault) return null;
     try {
-      const result = await vault.calculateBuyTFX(parseUnits(usdcAmount, 6));
-
-      // Contract calculates with USDC input (6 decimals) but doesn't convert to TFX decimals (18)
-      // So the result is in 6 decimal format, but we need to interpret it as TFX amount
-      // For display: treat the 6-decimal result as the actual TFX value (1:1 exchange)
-
+      const result = await vault.calculateBuyTFX(parseUnits(usdcAmount, USDC_DECIMALS));
       return {
-        tfxAmount: formatUnits(result.tfxAmount, 6),
-        feeAmount: formatUnits(result.feeAmount, 6),
-        tfxToUser: formatUnits(result.tfxToUser, 6),
+        tfxAmount: formatUnits(result.tfxAmount, TFX_DECIMALS), // ✅ FIXED (was 6)
+        feeAmount: formatUnits(result.feeAmount, TFX_DECIMALS), // ✅ FIXED (was 6)
+        tfxToUser: formatUnits(result.tfxToUser, TFX_DECIMALS), // ✅ FIXED (was 6)
       };
-    } catch (error) {
-      console.error("Error calculating buy TFX:", error);
+    } catch (e) {
+      console.error("calculateBuyTFX:", e);
       return null;
     }
   };
 
   /**
-   * Calculate how much USDC user will receive for TFX amount
+   * Preview: how much USDC will the user receive for a given TFX amount?
+   * Contract returns USDC values in 6 decimals (after the contract decimal fix).
    */
   const calculateSellTFX = async (tfxAmount) => {
     if (!vault) return null;
     try {
-      const result = await vault.calculateSellTFX(parseUnits(tfxAmount, 18));
-
-      // Contract calculates with TFX input (18 decimals) but doesn't convert to USDC decimals (6)
-      // So the result is in 18 decimal format, but we need to interpret it as USDC amount
-      // For display: treat the 18-decimal result as the actual USDC value (1:1 exchange)
-
+      const result = await vault.calculateSellTFX(parseUnits(tfxAmount, TFX_DECIMALS));
       return {
-        usdcAmount: formatUnits(result.usdcAmount, 18),
-        feeAmount: formatUnits(result.feeAmount, 18),
-        usdcToUser: formatUnits(result.usdcToUser, 18),
+        usdcAmount: formatUnits(result.usdcAmount, USDC_DECIMALS), // ✅ FIXED (was 18)
+        feeAmount:  formatUnits(result.feeAmount,  USDC_DECIMALS), // ✅ FIXED (was 18)
+        usdcToUser: formatUnits(result.usdcToUser, USDC_DECIMALS), // ✅ FIXED (was 18)
       };
-    } catch (error) {
-      console.error("Error calculating sell TFX:", error);
+    } catch (e) {
+      console.error("calculateSellTFX:", e);
       return null;
     }
   };
 
-  /**
-   * Get vault liquidity status
-   */
+  // ─── Vault read helpers ───────────────────────────────────────────────────
+
   const getVaultLiquidity = async () => {
     if (!vault) return null;
     try {
-      const result = await vault.getVaultLiquidity();
+      const r = await vault.getVaultLiquidity();
       return {
-        usdcBalance: formatUnits(result.usdcBalance, 6),
-        tfxBalance: formatUnits(result.tfxBalance, 18),
-        usdcFeesCollected: formatUnits(result.usdcFeesCollected, 6),
-        tfxFeesCollected: formatUnits(result.tfxFeesCollected, 18),
+        usdcBalance:       formatUnits(r.usdcBalance,       USDC_DECIMALS),
+        tfxBalance:        formatUnits(r.tfxBalance,        TFX_DECIMALS),
+        usdcFeesCollected: formatUnits(r.usdcFeesCollected, USDC_DECIMALS),
+        tfxFeesCollected:  formatUnits(r.tfxFeesCollected,  TFX_DECIMALS),
       };
-    } catch (error) {
-      console.error("Error getting vault liquidity:", error);
+    } catch (e) {
+      console.error("getVaultLiquidity:", e);
       return null;
     }
   };
 
-  /**
-   * Get vault statistics
-   */
   const getVaultStats = async () => {
     if (!vault) return null;
     try {
-      const result = await vault.getVaultStats();
+      const r = await vault.getVaultStats();
       return {
-        totalUSDCDeposited: formatUnits(result._totalUSDCDeposited, 6),
-        totalUSDCWithdrawn: formatUnits(result._totalUSDCWithdrawn, 6),
-        totalTFXDeposited: formatUnits(result._totalTFXDeposited, 18),
-        totalTFXWithdrawn: formatUnits(result._totalTFXWithdrawn, 18),
-        totalBuyTx: result._totalBuyTx.toString(),
-        totalSellTx: result._totalSellTx.toString(),
+        totalUSDCDeposited: formatUnits(r._totalUSDCDeposited, USDC_DECIMALS),
+        totalUSDCWithdrawn: formatUnits(r._totalUSDCWithdrawn, USDC_DECIMALS),
+        totalTFXDeposited:  formatUnits(r._totalTFXDeposited,  TFX_DECIMALS),
+        totalTFXWithdrawn:  formatUnits(r._totalTFXWithdrawn,  TFX_DECIMALS),
+        totalBuyTx:         r._totalBuyTx.toString(),
+        totalSellTx:        r._totalSellTx.toString(),
       };
-    } catch (error) {
-      console.error("Error getting vault stats:", error);
+    } catch (e) {
+      console.error("getVaultStats:", e);
       return null;
     }
   };
 
-  /**
-   * Get vault configuration
-   */
   const getVaultConfig = async () => {
     if (!vault) return null;
     try {
@@ -468,55 +429,34 @@ export const VaultProvider = ({ children }) => {
         vault.RATE_PRECISION(),
         vault.MAX_FEE(),
       ]);
-
       return {
-        rate: rate.toString(),
-        ratePrecision: ratePrecision.toString(),
-        buyFee: buyFee.toString(), // in basis points
-        sellFee: sellFee.toString(), // in basis points
-        maxFee: maxFee.toString(),
-        minTransaction: formatUnits(minTransaction, 6),
+        rate:           rate.toString(),
+        ratePrecision:  ratePrecision.toString(),
+        buyFee:         buyFee.toString(),
+        sellFee:        sellFee.toString(),
+        maxFee:         maxFee.toString(),
+        minTransaction: formatUnits(minTransaction, USDC_DECIMALS),
       };
-    } catch (error) {
-      console.error("Error getting vault config:", error);
+    } catch (e) {
+      console.error("getVaultConfig:", e);
       return null;
     }
   };
 
-  /**
-   * Check if vault is paused
-   */
   const isVaultPaused = async () => {
     if (!vault) return false;
-    try {
-      return await vault.paused();
-    } catch (error) {
-      console.error("Error checking vault pause status:", error);
-      return false;
-    }
+    try { return await vault.paused(); }
+    catch (e) { console.error("isVaultPaused:", e); return false; }
   };
 
-  /**
-   * Get vault owner
-   */
   const getVaultOwner = async () => {
     if (!vault) return "";
-    try {
-      return await vault.owner();
-    } catch (error) {
-      console.error("Error getting vault owner:", error);
-      return "";
-    }
+    try { return await vault.owner(); }
+    catch (e) { console.error("getVaultOwner:", e); return ""; }
   };
 
-  /* ===================================================================
-     VAULT ADMIN FUNCTIONS
-     =================================================================== */
+  // ─── Vault admin ─────────────────────────────────────────────────────────────
 
-  /**
-   * Set exchange rate (owner only)
-   * @param {number} newRate - New rate in basis points (10000 = 1:1)
-   */
   const setVaultRate = async (newRate) => {
     if (!vault) throw new Error("Vault contract not initialized");
     try {
@@ -524,19 +464,9 @@ export const VaultProvider = ({ children }) => {
       const tx = await vault.setRate(newRate);
       await tx.wait();
       return tx;
-    } catch (error) {
-      console.error("Error setting vault rate:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  /**
-   * Set vault fees (owner only)
-   * @param {number} buyFee - Buy fee in basis points
-   * @param {number} sellFee - Sell fee in basis points
-   */
   const setVaultFees = async (buyFee, sellFee) => {
     if (!vault) throw new Error("Vault contract not initialized");
     try {
@@ -544,110 +474,61 @@ export const VaultProvider = ({ children }) => {
       const tx = await vault.setFees(buyFee, sellFee);
       await tx.wait();
       return tx;
-    } catch (error) {
-      console.error("Error setting vault fees:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  /**
-   * Set minimum transaction amount (owner only)
-   * @param {string} newMin - New minimum in USDC (e.g., "1")
-   */
   const setMinTransaction = async (newMin) => {
     if (!vault) throw new Error("Vault contract not initialized");
     try {
       setLoading(true);
-      const tx = await vault.setMinTransaction(parseUnits(newMin, 6));
+      const tx = await vault.setMinTransaction(parseUnits(newMin, USDC_DECIMALS));
       await tx.wait();
       return tx;
-    } catch (error) {
-      console.error("Error setting min transaction:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  /**
-   * Add USDC liquidity to vault (owner only)
-   */
   const addUSDCLiquidity = async (amount) => {
     if (!vault) throw new Error("Vault contract not initialized");
     try {
       setLoading(true);
       await approveUSDC(amount);
-      const tx = await vault.addUSDCLiquidity(parseUnits(amount, 6));
+      const tx = await vault.addUSDCLiquidity(parseUnits(amount, USDC_DECIMALS));
       await tx.wait();
       return tx;
-    } catch (error) {
-      console.error("Error adding USDC liquidity:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  /**
-   * Add TFX liquidity to vault (owner only)
-   */
   const addTFXLiquidity = async (amount) => {
     if (!vault) throw new Error("Vault contract not initialized");
     try {
       setLoading(true);
       await approveTFX(amount);
-      const tx = await vault.addTFXLiquidity(parseUnits(amount, 18));
+      const tx = await vault.addTFXLiquidity(parseUnits(amount, TFX_DECIMALS));
       await tx.wait();
       return tx;
-    } catch (error) {
-      console.error("Error adding TFX liquidity:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  /**
-   * Withdraw USDC from vault (owner only)
-   */
   const withdrawUSDC = async (amount) => {
     if (!vault) throw new Error("Vault contract not initialized");
     try {
       setLoading(true);
-      const tx = await vault.withdrawUSDC(parseUnits(amount, 6));
+      const tx = await vault.withdrawUSDC(parseUnits(amount, USDC_DECIMALS));
       await tx.wait();
       return tx;
-    } catch (error) {
-      console.error("Error withdrawing USDC:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  /**
-   * Withdraw TFX from vault (owner only)
-   */
   const withdrawTFX = async (amount) => {
     if (!vault) throw new Error("Vault contract not initialized");
     try {
       setLoading(true);
-      const tx = await vault.withdrawTFX(parseUnits(amount, 18));
+      const tx = await vault.withdrawTFX(parseUnits(amount, TFX_DECIMALS));
       await tx.wait();
       return tx;
-    } catch (error) {
-      console.error("Error withdrawing TFX:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  /**
-   * Collect accumulated fees (owner only)
-   */
   const collectVaultFees = async () => {
     if (!vault) throw new Error("Vault contract not initialized");
     try {
@@ -655,39 +536,27 @@ export const VaultProvider = ({ children }) => {
       const tx = await vault.collectFees();
       await tx.wait();
       return tx;
-    } catch (error) {
-      console.error("Error collecting vault fees:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   /**
-   * Emergency withdraw any ERC20 token (owner only)
+   * Emergency withdraw — caller must supply the correct token's decimals.
+   * Defaults to 18; pass decimals=6 for USDC.
    */
-  const emergencyWithdrawVault = async (tokenAddress, amount, toAddress) => {
+  const emergencyWithdrawVault = async (tokenAddress, amount, toAddress, decimals = 18) => {
     if (!vault) throw new Error("Vault contract not initialized");
     try {
       setLoading(true);
       const tx = await vault.emergencyWithdraw(
         tokenAddress,
-        parseUnits(amount, 18), // assuming 18 decimals, adjust if needed
+        parseUnits(amount, decimals),
         toAddress
       );
       await tx.wait();
       return tx;
-    } catch (error) {
-      console.error("Error emergency withdraw:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  /**
-   * Pause vault (owner only)
-   */
   const pauseVault = async () => {
     if (!vault) throw new Error("Vault contract not initialized");
     try {
@@ -695,17 +564,9 @@ export const VaultProvider = ({ children }) => {
       const tx = await vault.pause();
       await tx.wait();
       return tx;
-    } catch (error) {
-      console.error("Error pausing vault:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  /**
-   * Unpause vault (owner only)
-   */
   const unpauseVault = async () => {
     if (!vault) throw new Error("Vault contract not initialized");
     try {
@@ -713,68 +574,42 @@ export const VaultProvider = ({ children }) => {
       const tx = await vault.unpause();
       await tx.wait();
       return tx;
-    } catch (error) {
-      console.error("Error unpausing vault:", error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
+
+  // ─── Provider ─────────────────────────────────────────────────────────────
 
   return (
     <VaultContext.Provider
       value={{
         // State
-        account,
-        provider,
-        signer,
-        vault,
-        usdc,
-        tfx,
-        loading,
+        account, provider, signer, vault, usdc, tfx, loading,
 
-        // Wallet functions
-        connectWallet,
-        disconnectWallet,
+        // Wallet
+        connectWallet, disconnectWallet,
 
-        // USDC Functions
-        getUSDCBalance,
-        approveUSDC,
-        getUSDCAllowance,
+        // USDC
+        getUSDCBalance, approveUSDC, getUSDCAllowance,
 
-        // TFX Functions (for vault)
-        getTFXBalance,
-        approveTFX,
-        getTFXAllowance,
+        // TFX
+        getTFXBalance, approveTFX, getTFXAllowance,
 
-        // Vault Core Functions
-        buyTFX,
-        sellTFX,
-        calculateBuyTFX,
-        calculateSellTFX,
-        getVaultLiquidity,
-        getVaultStats,
-        getVaultConfig,
-        isVaultPaused,
-        getVaultOwner,
+        // Vault core
+        buyTFX, sellTFX,
+        calculateBuyTFX, calculateSellTFX,
+        getVaultLiquidity, getVaultStats,
+        getVaultConfig, isVaultPaused, getVaultOwner,
 
-        // Vault Admin Functions
-        setVaultRate,
-        setVaultFees,
-        setMinTransaction,
-        addUSDCLiquidity,
-        addTFXLiquidity,
-        withdrawUSDC,
-        withdrawTFX,
-        collectVaultFees,
-        emergencyWithdrawVault,
-        pauseVault,
-        unpauseVault,
+        // Vault admin
+        setVaultRate, setVaultFees, setMinTransaction,
+        addUSDCLiquidity, addTFXLiquidity,
+        withdrawUSDC, withdrawTFX,
+        collectVaultFees, emergencyWithdrawVault,
+        pauseVault, unpauseVault,
 
         // Constants
-        VAULT_ADDRESS,
-        USDC_ADDRESS,
-        TFX_ADDRESS,
+        VAULT_ADDRESS, USDC_ADDRESS, TFX_ADDRESS,
+        USDC_DECIMALS, TFX_DECIMALS,
       }}
     >
       {children}
@@ -784,8 +619,6 @@ export const VaultProvider = ({ children }) => {
 
 export const useVault = () => {
   const context = useContext(VaultContext);
-  if (!context) {
-    throw new Error("useVault must be used within VaultProvider");
-  }
+  if (!context) throw new Error("useVault must be used within VaultProvider");
   return context;
 };

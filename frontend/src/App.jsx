@@ -24,6 +24,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dao" element={<DAO />} />
           <Route path="/lend" element={<Lend />} />
