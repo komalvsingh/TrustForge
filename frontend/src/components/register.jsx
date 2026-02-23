@@ -1,418 +1,439 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBlockchain } from "../context/BlockchainContext";
-import { useUser } from "../context/usercontext";
+import Navbar from "./Navbar";
 
 const Register = () => {
   const navigate = useNavigate();
-  const { account, connectWallet, getAddressByUsername } = useBlockchain();
-  const { registerUsername, hasUsername, loading: userLoading } = useUser();
 
-  const [username, setUsername] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [validationError, setValidationError] = useState("");
+  // Pull exactly what we need from BlockchainContext
+  const {
+    account,
+    connectWallet,
+    loading: blockchainLoading,   // context-level loading (connectWallet, registerUsername, etc.)
+    registerUsername,             // handles tx + tx.wait() internally
+    getAddressByUsername,         // returns null if not found
+    hasUsernameRegistered,        // checks if an address has a username
+  } = useBlockchain();
 
-  // Validate username in real-time
+  const [username, setUsername]                       = useState("");
+  const [validationError, setValidationError]         = useState("");
+  const [availabilityStatus, setAvailabilityStatus]   = useState(null); // "available" | "taken" | null
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [loading, setLoading]                         = useState(false);
+  const [error, setError]                             = useState("");
+  const [success, setSuccess]                         = useState(""); // "registered" on success
+
+  // Redirect if the connected account already has a username
+  useEffect(() => {
+    if (!account) return;
+    (async () => {
+      try {
+        const has = await hasUsernameRegistered(account);
+        if (has) navigate("/");
+      } catch (err) {
+        console.error("hasUsernameRegistered:", err);
+      }
+    })();
+  }, [account]);
+
+  // ── Validation ──────────────────────────────────────────────────────────────
   const validateUsername = (value) => {
     setUsername(value);
     setValidationError("");
     setError("");
+    setAvailabilityStatus(null);
 
-    // Check length
     if (value.length > 0 && value.length < 3) {
-      setValidationError("Username must be at least 3 characters");
+      setValidationError("At least 3 characters required");
       return false;
     }
-
     if (value.length > 20) {
-      setValidationError("Username must be at most 20 characters");
+      setValidationError("Maximum 20 characters");
       return false;
     }
-
-    // Check valid characters (alphanumeric + underscore)
-    const validPattern = /^[a-zA-Z0-9_]*$/;
-    if (value.length > 0 && !validPattern.test(value)) {
-      setValidationError("Username can only contain letters, numbers, and underscores");
+    if (value.length > 0 && !/^[a-zA-Z0-9_]*$/.test(value)) {
+      setValidationError("Letters, numbers and underscores only");
       return false;
     }
-
-    // Check doesn't start with number
     if (value.length > 0 && /^[0-9]/.test(value)) {
-      setValidationError("Username cannot start with a number");
+      setValidationError("Cannot start with a number");
       return false;
     }
-
     return true;
   };
 
-  // Check if username is available
+  // ── Availability check (uses getAddressByUsername from context) ─────────────
   const checkAvailability = async () => {
-    if (!username || validationError) return;
-
+    if (!username || validationError || username.length < 3) return;
     try {
-      setLoading(true);
+      setCheckingAvailability(true);
+      setError("");
+      // getAddressByUsername returns null when username is free
       const existingAddress = await getAddressByUsername(username);
-
       if (existingAddress) {
+        setAvailabilityStatus("taken");
         setError("This username is already taken");
       } else {
-        setSuccess("Username is available!");
-        setTimeout(() => setSuccess(""), 3000);
+        setAvailabilityStatus("available");
       }
-    } catch (error) {
-      console.error("Error checking availability:", error);
+    } catch (err) {
+      console.error("checkAvailability:", err);
     } finally {
-      setLoading(false);
+      setCheckingAvailability(false);
     }
   };
 
-  // Handle registration
+  // ── Registration (uses registerUsername from context) ───────────────────────
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    if (!account) {
-      setError("Please connect your wallet first");
-      return;
-    }
-
-    if (!username || validationError) {
-      setError("Please enter a valid username");
-      return;
-    }
+    if (!account) { setError("Please connect your wallet first"); return; }
+    if (!username || validationError) { setError("Please enter a valid username"); return; }
 
     try {
       setLoading(true);
 
-      // Check if username is available
+      // Re-check availability right before submitting
       const existingAddress = await getAddressByUsername(username);
       if (existingAddress) {
         setError("This username is already taken");
+        setAvailabilityStatus("taken");
         return;
       }
 
-      // Register username
+      // registerUsername handles the contract call + tx.wait() + setLoading inside context
+      // We wrap in our own try/catch so we can map error messages for the user
       await registerUsername(username);
 
-      setSuccess("Username registered successfully!");
-
-      // Redirect to dashboard after 2 seconds
-      setTimeout(() => {
-        navigate("/");
-      }, 2000);
-    } catch (error) {
-      console.error("Registration error:", error);
-
-      // Parse error message
-      if (error.message.includes("already registered")) {
+      setSuccess("registered");
+      setTimeout(() => navigate("/"), 2000);
+    } catch (err) {
+      console.error("Registration error:", err);
+      const msg = err.message || "";
+      if (msg.includes("already registered")) {
         setError("You have already registered a username");
-      } else if (error.message.includes("Invalid username")) {
+      } else if (msg.includes("Invalid username")) {
         setError("Invalid username format");
-      } else if (error.message.includes("Username already taken")) {
+      } else if (msg.includes("Username already taken")) {
         setError("This username is already taken");
+      } else if (msg.includes("user rejected") || msg.includes("ACTION_REJECTED")) {
+        setError("Transaction rejected in wallet");
       } else {
-        setError("Failed to register username. Please try again.");
+        setError("Failed to register. Please try again.");
       }
     } finally {
       setLoading(false);
     }
   };
 
-  // If user already has username, redirect
-  if (hasUsername && !userLoading) {
-    navigate("/");
-    return null;
-  }
+  // ── Derived state ───────────────────────────────────────────────────────────
+  const rules = [
+    { label: "3–20 characters",               pass: username.length >= 3 && username.length <= 20 },
+    { label: "Letters, numbers, underscores", pass: username.length > 0 && /^[a-zA-Z0-9_]*$/.test(username) },
+    { label: "Cannot start with a number",    pass: username.length > 0 && !/^[0-9]/.test(username) },
+  ];
+
+  const shortAddress = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
+
+  // blockchainLoading covers connectWallet; local loading covers handleRegister
+  const isBusy = loading || blockchainLoading;
+
+  const isSubmitDisabled =
+    !account ||
+    isBusy ||
+    !!validationError ||
+    !username ||
+    username.length < 3 ||
+    availabilityStatus === "taken";
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-blue-500/5 rounded-full blur-2xl"></div>
-      </div>
+    <>
+      <Navbar />
 
-      <div className="max-w-lg w-full relative z-10">
-        {/* Card */}
-        <div className="bg-[#0f1629]/80 backdrop-blur-xl rounded-3xl shadow-2xl p-10 border border-blue-500/20 relative overflow-hidden">
-          {/* Glow Effect */}
-          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-blue-500/5 opacity-50"></div>
-          <div className="absolute -top-24 -right-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl"></div>
-          <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl"></div>
+      <div style={{ fontFamily: "'DM Sans','Helvetica Neue',sans-serif", minHeight: "100vh", background: "#0d0d0d", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 24px" }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=DM+Mono:wght@400;500&display=swap');
+          *{box-sizing:border-box}
+          :root{
+            --surface:#161616; --surface2:#1e1e1e;
+            --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.12);
+            --accent:#a8d4a0; --accent-glow:rgba(168,212,160,0.15);
+            --accent-dim:rgba(168,212,160,0.08); --accent-border:rgba(168,212,160,0.25);
+            --text:#f2efe9; --text-muted:#888; --text-dim:#444;
+            --red:#f87171; --red-dim:rgba(248,113,113,0.08); --red-border:rgba(248,113,113,0.2);
+            --amber:#fbbf24; --amber-dim:rgba(251,191,36,0.08); --amber-border:rgba(251,191,36,0.2);
+            --mono:'DM Mono',monospace;
+          }
+          .card { background:var(--surface); border:1px solid var(--border); border-radius:24px; width:100%; max-width:480px; overflow:hidden; animation:fadeUp .5s ease forwards; position:relative; }
+          .card-bar { height:2px; background:linear-gradient(90deg,transparent,var(--accent),transparent); }
+          .card-inner { padding:36px 40px 40px; }
+          .logo-row { display:flex; align-items:center; gap:12px; margin-bottom:36px; }
+          .logo-icon { width:38px; height:38px; background:var(--accent); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+          .logo-name { font-size:15px; font-weight:700; letter-spacing:-.02em; color:var(--text); }
+          .logo-sub { font-family:var(--mono); font-size:9px; color:var(--text-dim); letter-spacing:.1em; margin-top:2px; }
+          .page-title { font-size:28px; font-weight:700; letter-spacing:-.035em; color:var(--text); line-height:1.15; margin-bottom:8px; }
+          .page-sub { font-size:13.5px; color:var(--text-muted); line-height:1.7; margin-bottom:28px; }
+          .wallet-chip { display:flex; align-items:center; gap:12px; padding:14px 16px; background:var(--accent-dim); border:1px solid var(--accent-border); border-radius:12px; margin-bottom:28px; }
+          .wallet-dot { width:8px; height:8px; background:var(--accent); border-radius:50%; position:relative; flex-shrink:0; animation:pulse 2.5s infinite; }
+          .wallet-dot::after { content:''; position:absolute; inset:-3px; border:1px solid var(--accent); border-radius:50%; animation:ring 2.5s infinite; }
+          .wallet-info { flex:1; }
+          .wallet-label { font-family:var(--mono); font-size:9px; color:var(--text-dim); letter-spacing:.1em; margin-bottom:3px; }
+          .wallet-addr { font-family:var(--mono); font-size:13px; color:var(--accent); font-weight:500; }
+          .warn-chip { display:flex; align-items:center; gap:10px; padding:13px 16px; background:var(--amber-dim); border:1px solid var(--amber-border); border-radius:12px; margin-bottom:16px; font-size:13px; color:var(--amber); }
+          .connect-btn { width:100%; padding:13px; border-radius:11px; background:rgba(168,212,160,.07); border:1px solid rgba(168,212,160,.2); color:var(--accent); font-size:14px; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all .22s; margin-bottom:28px; }
+          .connect-btn:hover:not(:disabled) { background:rgba(168,212,160,.12); border-color:rgba(168,212,160,.35); }
+          .connect-btn:disabled { opacity:.5; cursor:not-allowed; }
+          .divider { height:1px; background:var(--border); margin:0 0 28px; }
+          .input-label { font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:.06em; text-transform:uppercase; margin-bottom:10px; display:block; }
+          .input-row { display:flex; gap:8px; align-items:stretch; }
+          .input-wrap { position:relative; flex:1; }
+          .rg-input { width:100%; padding:13px 40px 13px 16px; background:var(--surface2); border:1px solid var(--border2); border-radius:11px; color:var(--text); font-size:14px; font-family:'DM Sans',sans-serif; outline:none; transition:border-color .2s,box-shadow .2s; height:48px; }
+          .rg-input::placeholder { color:var(--text-dim); }
+          .rg-input:focus { border-color:rgba(168,212,160,.4); box-shadow:0 0 0 3px rgba(168,212,160,.08); }
+          .rg-input.err { border-color:var(--red-border); box-shadow:0 0 0 3px var(--red-dim); }
+          .rg-input.ok  { border-color:rgba(168,212,160,.4); box-shadow:0 0 0 3px rgba(168,212,160,.08); }
+          .rg-input:disabled { opacity:.4; cursor:not-allowed; }
+          .input-icon { position:absolute; right:13px; top:50%; transform:translateY(-50%); display:flex; align-items:center; pointer-events:none; }
+          .check-btn { padding:0 18px; height:48px; border-radius:11px; border:1px solid var(--border2); background:var(--surface2); color:var(--text-muted); font-size:12.5px; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .2s; white-space:nowrap; flex-shrink:0; }
+          .check-btn:hover:not(:disabled) { color:var(--text); background:rgba(255,255,255,.04); }
+          .check-btn:disabled { opacity:.3; cursor:not-allowed; }
+          .msg { display:flex; align-items:flex-start; gap:9px; padding:11px 14px; border-radius:10px; margin-top:10px; font-size:12.5px; line-height:1.5; }
+          .msg.err { background:var(--red-dim); border:1px solid var(--red-border); color:var(--red); }
+          .msg.ok  { background:var(--accent-dim); border:1px solid var(--accent-border); color:var(--accent); }
+          .rules { display:flex; flex-direction:column; gap:7px; margin-top:16px; }
+          .rule { display:flex; align-items:center; gap:9px; font-family:var(--mono); font-size:11.5px; transition:color .2s; }
+          .rule.pass { color:var(--accent); }
+          .rule.fail { color:var(--text-dim); }
+          .rule-dot { width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; transition:transform .2s; }
+          .rule.pass .rule-dot { transform:scale(1.2); }
+          .submit-btn { width:100%; padding:15px; border-radius:12px; border:none; background:var(--accent); color:#0c1a0c; font-size:14px; font-weight:700; font-family:'DM Sans',sans-serif; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all .22s; margin-top:28px; letter-spacing:-.01em; }
+          .submit-btn:hover:not(:disabled) { background:#bde0b4; transform:translateY(-1px); box-shadow:0 8px 28px var(--accent-glow); }
+          .submit-btn:disabled { opacity:.35; cursor:not-allowed; transform:none; box-shadow:none; }
+          .footer-row { display:flex; align-items:center; justify-content:space-between; margin-top:24px; padding-top:24px; border-top:1px solid var(--border); }
+          .already-text { font-size:12.5px; color:var(--text-dim); }
+          .already-link { background:none; border:none; color:var(--accent); font-size:12.5px; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; padding:0; transition:color .2s; }
+          .already-link:hover { color:#bde0b4; }
+          .badges { display:flex; gap:6px; }
+          .badge { font-family:var(--mono); font-size:9px; letter-spacing:.07em; color:var(--text-dim); background:var(--surface2); border:1px solid var(--border); padding:4px 9px; border-radius:6px; }
+          .success-overlay { position:absolute; inset:0; background:rgba(13,13,13,.97); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; border-radius:24px; animation:fadeUp .3s ease forwards; z-index:10; }
+          .success-icon { width:64px; height:64px; border-radius:50%; background:var(--accent-dim); border:1px solid var(--accent-border); display:flex; align-items:center; justify-content:center; }
+          .spin { animation:spin .8s linear infinite; display:inline-flex; }
+          @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes pulse  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.85)} }
+          @keyframes ring   { 0%{transform:scale(1);opacity:.5} 100%{transform:scale(2.6);opacity:0} }
+          @keyframes spin   { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+        `}</style>
 
-          <div className="relative">
-            {/* Header */}
-            <div className="text-center mb-10">
-              <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl mb-6 border border-blue-400/20 shadow-xl relative group">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all"></div>
-                <svg
-                  className="w-12 h-12 text-blue-400 relative z-10"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                  />
+        {/* Background orbs */}
+        <div style={{ position:"fixed", inset:0, pointerEvents:"none", overflow:"hidden", zIndex:0 }}>
+          <div style={{ position:"absolute", top:"-10%", left:"-10%", width:500, height:500, borderRadius:"50%", background:"radial-gradient(circle, rgba(168,212,160,.04) 0%, transparent 70%)", filter:"blur(60px)" }}/>
+          <div style={{ position:"absolute", bottom:"-5%", right:"-5%", width:400, height:400, borderRadius:"50%", background:"radial-gradient(circle, rgba(168,212,160,.03) 0%, transparent 70%)", filter:"blur(60px)" }}/>
+        </div>
+
+        <div className="card" style={{ position:"relative", zIndex:1 }}>
+          <div className="card-bar"/>
+
+          {/* ── Success overlay ── */}
+          {success === "registered" && (
+            <div className="success-overlay">
+              <div className="success-icon">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
                 </svg>
               </div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-blue-500 bg-clip-text text-transparent mb-3 tracking-tight">
-                TrustForge
-              </h1>
-              <p className="text-gray-400 text-base">
-                Choose your unique username
-              </p>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:18, fontWeight:700, color:"var(--text)", marginBottom:6 }}>Registered!</div>
+                <div style={{ fontFamily:"var(--mono)", fontSize:13, color:"var(--text-dim)" }}>@{username}</div>
+              </div>
+              <div style={{ fontSize:12, color:"var(--text-dim)" }}>Redirecting to dashboard…</div>
+            </div>
+          )}
+
+          <div className="card-inner">
+
+            {/* Logo */}
+            <div className="logo-row">
+              <div className="logo-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0c1a0c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+              </div>
+              <div>
+                <div className="logo-name">TrustForge</div>
+                <div className="logo-sub">USERNAME REGISTRATION</div>
+              </div>
             </div>
 
-            {/* Wallet Status */}
+            <h1 className="page-title">Choose your<br/>username</h1>
+            <p className="page-sub">Your on-chain identity. Permanent and tied to your wallet address.</p>
+
+            {/* ── Wallet section ── */}
             {!account ? (
-              <div className="mb-8 p-5 bg-gradient-to-br from-blue-500/5 to-purple-500/5 border border-blue-500/30 rounded-2xl backdrop-blur-sm">
-                <p className="text-blue-300 text-sm font-medium mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              <>
+                <div className="warn-chip">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
-                  Connect your wallet to continue
-                </p>
-                <button
-                  onClick={connectWallet}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold py-3.5 px-4 rounded-xl transition-all duration-300 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 hover:scale-[1.02] border border-purple-400/20"
-                >
-                  Connect Wallet
-                </button>
-              </div>
-            ) : (
-              <div className="mb-8 p-5 bg-gradient-to-br from-purple-500/5 to-blue-500/5 border border-purple-500/30 rounded-2xl backdrop-blur-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-lg flex items-center justify-center mr-3 border border-purple-400/20">
-                      <svg className="w-5 h-5 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-purple-300 text-sm font-semibold">Wallet Connected</p>
-                      <p className="text-purple-400/70 text-xs font-mono truncate max-w-[200px]">
-                        {account}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse shadow-lg shadow-purple-400/50"></div>
+                  Connect your wallet to register a username
                 </div>
+                <button className="connect-btn" onClick={connectWallet} disabled={blockchainLoading}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="7" width="20" height="14" rx="2"/>
+                    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                  </svg>
+                  {blockchainLoading ? "Connecting…" : "Connect Wallet"}
+                </button>
+              </>
+            ) : (
+              <div className="wallet-chip">
+                <div className="wallet-dot"/>
+                <div className="wallet-info">
+                  <div className="wallet-label">Connected Wallet</div>
+                  <div className="wallet-addr">{shortAddress(account)}</div>
+                </div>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
               </div>
             )}
 
-            {/* Registration Form */}
-            <form onSubmit={handleRegister} className="space-y-6">
-              <div>
-                <label
-                  htmlFor="username"
-                  className="block text-sm font-semibold text-gray-300 mb-3"
-                >
-                  Username
-                </label>
-                <div className="relative group">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/30 to-purple-500/30 rounded-xl blur opacity-0 group-focus-within:opacity-100 transition-opacity"></div>
+            <div className="divider"/>
+
+            {/* ── Form ── */}
+            <form onSubmit={handleRegister}>
+              <label className="input-label">Username</label>
+              <div className="input-row">
+                <div className="input-wrap">
                   <input
                     type="text"
-                    id="username"
                     value={username}
                     onChange={(e) => validateUsername(e.target.value)}
                     onBlur={checkAvailability}
-                    placeholder="Enter your username"
-                    disabled={!account || loading}
-                    className={`relative w-full px-5 py-4 bg-[#0a0e1a] border rounded-xl focus:ring-2 focus:outline-none transition-all text-white placeholder-gray-500 text-base ${
-                      validationError || error
-                        ? "border-red-500/50 focus:ring-red-500/30 focus:border-red-500"
-                        : success
-                        ? "border-purple-500/50 focus:ring-purple-500/30 focus:border-purple-500"
-                        : "border-blue-500/20 focus:ring-blue-500/30 focus:border-blue-500/50"
-                    } ${!account || loading ? "opacity-50 cursor-not-allowed" : ""}`}
+                    placeholder="e.g. satoshi_42"
+                    disabled={!account || isBusy}
+                    className={`rg-input${
+                      validationError || availabilityStatus === "taken" ? " err"
+                      : availabilityStatus === "available" ? " ok" : ""
+                    }`}
                   />
-                  {username && !validationError && !error && success && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                      <svg
-                        className="w-6 h-6 text-purple-400 animate-pulse"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
+                  <div className="input-icon">
+                    {checkingAvailability && (
+                      <svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+                        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+                        <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+                        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
                       </svg>
-                    </div>
-                  )}
-                </div>
-
-                {/* Validation Message */}
-                {validationError && (
-                  <p className="text-red-400 text-sm mt-3 flex items-center animate-shake">
-                    <svg
-                      className="w-4 h-4 mr-2 flex-shrink-0"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    {validationError}
-                  </p>
-                )}
-
-                {/* Success Message */}
-                {success && (
-                  <p className="text-purple-400 text-sm mt-3 flex items-center animate-fade-in">
-                    <svg
-                      className="w-4 h-4 mr-2 flex-shrink-0"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    {success}
-                  </p>
-                )}
-
-                {/* Username Requirements - Compact */}
-                <div className="mt-4 grid grid-cols-1 gap-2">
-                  <div className={`flex items-center text-xs transition-colors ${username.length >= 3 && username.length <= 20 ? "text-purple-400" : "text-gray-500"}`}>
-                    <span className="mr-2 text-base">
-                      {username.length >= 3 && username.length <= 20 ? "✓" : "○"}
-                    </span>
-                    3-20 characters
-                  </div>
-                  <div className={`flex items-center text-xs transition-colors ${username && /^[a-zA-Z0-9_]*$/.test(username) ? "text-purple-400" : "text-gray-500"}`}>
-                    <span className="mr-2 text-base">
-                      {username && /^[a-zA-Z0-9_]*$/.test(username) ? "✓" : "○"}
-                    </span>
-                    Letters, numbers, underscores only
-                  </div>
-                  <div className={`flex items-center text-xs transition-colors ${username && !/^[0-9]/.test(username) ? "text-purple-400" : "text-gray-500"}`}>
-                    <span className="mr-2 text-base">
-                      {username && !/^[0-9]/.test(username) ? "✓" : "○"}
-                    </span>
-                    Cannot start with number
+                    )}
+                    {!checkingAvailability && availabilityStatus === "available" && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    )}
+                    {!checkingAvailability && availabilityStatus === "taken" && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    )}
                   </div>
                 </div>
+
+                {/* Manual check triggers checkAvailability which calls getAddressByUsername */}
+                <button
+                  type="button"
+                  className="check-btn"
+                  onClick={checkAvailability}
+                  disabled={!account || !username || !!validationError || username.length < 3 || checkingAvailability || isBusy}
+                >
+                  {checkingAvailability ? "Checking…" : "Check"}
+                </button>
               </div>
 
-              {/* Error Message */}
-              {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl backdrop-blur-sm animate-fade-in">
-                  <p className="text-red-400 text-sm font-medium flex items-center">
-                    <svg
-                      className="w-5 h-5 mr-2 flex-shrink-0"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    {error}
-                  </p>
+              {/* Validation error */}
+              {validationError && (
+                <div className="msg err">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,marginTop:1}}>
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  {validationError}
                 </div>
               )}
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={!account || loading || !!validationError || !username}
-                className={`w-full py-4 px-6 rounded-xl font-bold text-white text-base transition-all duration-300 relative overflow-hidden group ${
-                  !account || loading || validationError || !username
-                    ? "bg-gray-700/50 cursor-not-allowed opacity-50 border border-gray-600/30"
-                    : "bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 hover:from-blue-500 hover:via-purple-500 hover:to-blue-500 shadow-lg shadow-purple-500/40 hover:shadow-purple-500/60 hover:scale-[1.02] border border-purple-400/30"
-                }`}
-              >
-                {(!account || loading || validationError || !username) ? null : (
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/0 via-white/20 to-blue-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+              {/* Availability status messages */}
+              {!validationError && availabilityStatus === "available" && (
+                <div className="msg ok">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,marginTop:1}}><polyline points="20 6 9 17 4 12"/></svg>
+                  @{username} is available
+                </div>
+              )}
+              {!validationError && availabilityStatus === "taken" && (
+                <div className="msg err">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,marginTop:1}}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  @{username} is already taken
+                </div>
+              )}
+
+              {/* Generic errors (not duplicated by the above) */}
+              {error && !validationError && availabilityStatus !== "taken" && (
+                <div className="msg err">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,marginTop:1}}>
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  {error}
+                </div>
+              )}
+
+              {/* Rules */}
+              <div className="rules">
+                {rules.map((r, i) => (
+                  <div key={i} className={`rule ${username.length > 0 ? (r.pass ? "pass" : "fail") : "fail"}`}>
+                    <div className="rule-dot"/>
+                    <span>{r.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Submit */}
+              <button type="submit" className="submit-btn" disabled={isSubmitDisabled}>
+                {isBusy ? (
+                  <>
+                    <svg className="spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+                      <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+                      <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+                      <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+                    </svg>
+                    Registering…
+                  </>
+                ) : (
+                  <>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    Register Username
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                  </>
                 )}
-                <span className="relative z-10">
-                  {loading ? (
-                    <span className="flex items-center justify-center">
-                      <svg
-                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Registering...
-                    </span>
-                  ) : (
-                    "Register Username"
-                  )}
-                </span>
               </button>
             </form>
 
             {/* Footer */}
-            <div className="mt-8 text-center">
-              <p className="text-sm text-gray-400">
-                Already have a username?{" "}
-                <button
-                  onClick={() => navigate("/")}
-                  className="text-blue-400 hover:text-blue-300 font-medium transition-colors hover:underline"
-                >
-                  Go to Dashboard →
-                </button>
-              </p>
+            <div className="footer-row">
+              <div>
+                <span className="already-text">Already registered? </span>
+                <button className="already-link" onClick={() => navigate("/")}>Go to Dashboard →</button>
+              </div>
+              <div className="badges">
+                <span className="badge">ON-CHAIN</span>
+                <span className="badge">PERMANENT</span>
+              </div>
             </div>
+
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-5px); }
-          75% { transform: translateX(5px); }
-        }
-
-        .animate-shake {
-          animation: shake 0.3s ease-in-out;
-        }
-
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-      `}</style>
-    </div>
+    </>
   );
 };
 

@@ -1,205 +1,141 @@
-// // scripts/deploy.js
-// const hre = require("hardhat");
+/**
+ * deploy.js
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Step 1 of 3 — Deploys TrustForge and TrustForgeDAO contracts.
+ *
+ * Run:
+ *   npx hardhat run scripts/deploy.js --network sepolia
+ *
+ * After this script completes:
+ *   → Run: npx hardhat run scripts/link.js --network sepolia
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 
-// async function main() {
-//   console.log("Starting deployment...\n");
-
-//   // Get the deployer account
-//   const [deployer] = await hre.ethers.getSigners();
-//   console.log("Deploying contracts with account:", deployer.address);
-//   console.log("Account balance:", (await hre.ethers.provider.getBalance(deployer.address)).toString());
-//   console.log("\n");
-
-//   // ============ Step 1: Deploy TFXToken ============
-//   console.log("📝 Deploying TFXToken...");
-//   const TFXToken = await hre.ethers.getContractFactory("TFXToken");
-//   const tfxToken = await TFXToken.deploy();
-//   await tfxToken.waitForDeployment();
-//   const tfxTokenAddress = await tfxToken.getAddress();
-
-//   console.log("✅ TFXToken deployed to:", tfxTokenAddress);
-//   console.log("   Token Name: TrustForge Token");
-//   console.log("   Token Symbol: TFX");
-//   console.log("   Initial Supply: 1,000,000 TFX");
-//   console.log("\n");
-
-//   // ============ Step 2: Deploy TrustForge ============
-//   console.log("📝 Deploying TrustForge...");
-//   const TrustForge = await hre.ethers.getContractFactory("TrustForge");
-//   const trustForge = await TrustForge.deploy(tfxTokenAddress);
-//   await trustForge.waitForDeployment();
-//   const trustForgeAddress = await trustForge.getAddress();
-
-//   console.log("✅ TrustForge deployed to:", trustForgeAddress);
-//   console.log("\n");
-
-//   // ============ Step 3: Verification Info ============
-//   console.log("📋 Deployment Summary:");
-//   console.log("==========================================");
-//   console.log("TFXToken Address:    ", tfxTokenAddress);
-//   console.log("TrustForge Address:  ", trustForgeAddress);
-//   console.log("Deployer Address:    ", deployer.address);
-//   console.log("==========================================");
-//   console.log("\n");
-
-//   // ============ Step 4: Save Deployment Info ============
-//   const fs = require("fs");
-//   const deploymentInfo = {
-//     network: hre.network.name,
-//     deployer: deployer.address,
-//     timestamp: new Date().toISOString(),
-//     contracts: {
-//       TFXToken: {
-//         address: tfxTokenAddress,
-//         name: "TrustForge Token",
-//         symbol: "TFX"
-//       },
-//       TrustForge: {
-//         address: trustForgeAddress,
-//         lendingToken: tfxTokenAddress
-//       }
-//     }
-//   };
-
-//   fs.writeFileSync(
-//     "deployment-info.json",
-//     JSON.stringify(deploymentInfo, null, 2)
-//   );
-//   console.log("✅ Deployment info saved to deployment-info.json\n");
-
-//   // ============ Step 5: Verification Commands ============
-//   if (hre.network.name !== "hardhat" && hre.network.name !== "localhost") {
-//     console.log("📝 Verification Commands:");
-//     console.log("==========================================");
-//     console.log("\nTo verify TFXToken:");
-//     console.log(`npx hardhat verify --network ${hre.network.name} ${tfxTokenAddress}`);
-//     console.log("\nTo verify TrustForge:");
-//     console.log(`npx hardhat verify --network ${hre.network.name} ${trustForgeAddress} ${tfxTokenAddress}`);
-//     console.log("\n==========================================\n");
-//   }
-
-//   // ============ Step 6: Next Steps ============
-//   console.log("📌 Next Steps:");
-//   console.log("==========================================");
-//   console.log("1. Approve TrustForge to spend TFX tokens (for lenders)");
-//   console.log("2. Deposit liquidity into the pool using depositToPool()");
-//   console.log("3. Users can request loans using requestLoan()");
-//   console.log("4. (Optional) Enable DAO governance using enableDAO()");
-//   console.log("==========================================\n");
-
-//   console.log("🎉 Deployment completed successfully!\n");
-
-//   return {
-//     tfxToken: tfxTokenAddress,
-//     trustForge: trustForgeAddress
-//   };
-// }
-
-// // Execute deployment
-// main()
-//   .then(() => process.exit(0))
-//   .catch((error) => {
-//     console.error(error);
-//     process.exit(1);
-//   });
-
- const hre = require("hardhat");
-const { ethers } = require("hardhat"); // Add this line!
+const { ethers } = require("hardhat");
+const fs         = require("fs");
+const path       = require("path");
 require("dotenv").config();
 
 async function main() {
-  console.log("🚀 Deploying TFXReserveVault to", hre.network.name, "\n");
+  console.log("\n╔══════════════════════════════════════════════════╗");
+  console.log("║       TrustForge — Contract Deployment            ║");
+  console.log("╚══════════════════════════════════════════════════╝\n");
 
-  // Get addresses from .env
-  const USDC_ADDRESS = process.env.USDC_ADDRESS;
-  const TFX_ADDRESS = process.env.TFX_ADDRESS;
+  // ── Validate environment variables ────────────────────────────────────────
+  const requiredEnv = [
+    "USDC_TOKEN_ADDRESS",
+    "ADMIN_WALLET",
+    "EMERGENCY_PAUSER",
+    "QUORUM_THRESHOLD",
+  ];
 
-  if (!USDC_ADDRESS || !TFX_ADDRESS) {
-    throw new Error("Please set USDC_ADDRESS and TFX_ADDRESS in .env file");
+  for (const key of requiredEnv) {
+    if (!process.env[key]) {
+      throw new Error(`Missing required env variable: ${key}. Check your .env file.`);
+    }
   }
 
+  const USDC_ADDRESS      = process.env.USDC_TOKEN_ADDRESS;
+  const ADMIN_WALLET      = process.env.ADMIN_WALLET;
+  const EMERGENCY_PAUSER  = process.env.EMERGENCY_PAUSER;
+  const QUORUM_THRESHOLD  = process.env.QUORUM_THRESHOLD;
+
+  // ── Signer info ───────────────────────────────────────────────────────────
   const [deployer] = await ethers.getSigners();
-  const balance = await deployer.provider.getBalance(deployer.address);
+  const deployerBalance = await ethers.provider.getBalance(deployer.address);
 
-  console.log("Deploying from:", deployer.address);
-  console.log("Balance:", ethers.formatEther(balance), "ETH\n");
+  console.log("📋 Deployment Configuration:");
+  console.log("─".repeat(50));
+  console.log(`  Deployer:          ${deployer.address}`);
+  console.log(`  Deployer balance:  ${ethers.formatEther(deployerBalance)} ETH`);
+  console.log(`  USDC token:        ${USDC_ADDRESS}`);
+  console.log(`  Admin wallet:      ${ADMIN_WALLET}`);
+  console.log(`  Emergency pauser:  ${EMERGENCY_PAUSER}`);
+  console.log(`  Quorum threshold:  ${Number(QUORUM_THRESHOLD) / 1e6} USDC`);
+  console.log(`  Network:           ${(await ethers.provider.getNetwork()).name}`);
+  console.log("─".repeat(50));
 
-  console.log("Using USDC at:", USDC_ADDRESS);
-  console.log("Using TFX at:", TFX_ADDRESS);
-  console.log("\n");
+  // Safety check — deployer shouldn't be admin or pauser (separation of concerns)
+  if (deployer.address.toLowerCase() === ADMIN_WALLET.toLowerCase()) {
+    console.warn("\n⚠️  WARNING: Deployer and admin wallet are the same address.");
+    console.warn("   Consider using a separate treasury wallet for admin fees.\n");
+  }
 
-  // Deploy
-  console.log("Deploying contract...");
-  const TFXReserveVault = await ethers.getContractFactory("TFXReserveVault");
-  const vault = await TFXReserveVault.deploy(USDC_ADDRESS, TFX_ADDRESS);
-  await vault.waitForDeployment();
+  // ── Deploy TrustForge ────────────────────────────────────────────────────
+  console.log("\n[1/2] Deploying TrustForge...");
 
-  const vaultAddress = await vault.getAddress();
-  console.log("✅ Vault deployed to:", vaultAddress);
+  const TrustForge        = await ethers.getContractFactory("TrustForge");
+  const trustForge        = await TrustForge.deploy(USDC_ADDRESS, ADMIN_WALLET);
+  await trustForge.waitForDeployment();
+  const trustForgeAddress = await trustForge.getAddress();
 
-  // Configure
-  console.log("\n⚙️  Configuring vault...");
+  console.log(`  ✅ TrustForge deployed at: ${trustForgeAddress}`);
+  console.log(`  🔗 Tx hash: ${trustForge.deploymentTransaction().hash}`);
 
-  console.log("Setting fees to 0.3%...");
-  const feesTx = await vault.setFees(30, 30); // 30 basis points = 0.3%
-  await feesTx.wait();
-  console.log("✅ Fees set");
+  // ── Deploy TrustForgeDAO ─────────────────────────────────────────────────
+  console.log("\n[2/2] Deploying TrustForgeDAO...");
 
-  console.log("\nSetting minimum transaction to 1 USDC...");
-  const minTx = await vault.setMinTransaction(ethers.parseUnits("1", 6)); // 1 USDC (6 decimals)
-  await minTx.wait();
-  console.log("✅ Minimum set");
+  const TrustForgeDAO = await ethers.getContractFactory("TrustForgeDAO");
+  const dao           = await TrustForgeDAO.deploy(USDC_ADDRESS, QUORUM_THRESHOLD);
+  await dao.waitForDeployment();
+  const daoAddress    = await dao.getAddress();
 
-  console.log("\n✅ Configuration complete!");
+  console.log(`  ✅ TrustForgeDAO deployed at: ${daoAddress}`);
+  console.log(`  🔗 Tx hash: ${dao.deploymentTransaction().hash}`);
 
-  // Display info
-  console.log("\n📊 Vault Configuration:");
-  console.log("├─ Address:", vaultAddress);
-  console.log("├─ Owner:", await vault.owner());
-  console.log("├─ Rate:", (await vault.rate()).toString(), "(10000 = 1:1)");
-  console.log("├─ Buy Fee:", (await vault.buyFee()).toString(), "bps");
-  console.log("├─ Sell Fee:", (await vault.sellFee()).toString(), "bps");
-  console.log("└─ Min Transaction:", ethers.formatUnits(await vault.minTransactionAmount(), 6), "USDC");
+  // ── Save deployment addresses to file ────────────────────────────────────
+  const network   = (await ethers.provider.getNetwork()).name;
+  const chainId   = (await ethers.provider.getNetwork()).chainId.toString();
+  const timestamp = new Date().toISOString();
 
-  // Save deployment info
-  const deploymentInfo = {
-    network: hre.network.name,
-    vaultAddress: vaultAddress,
-    usdcAddress: USDC_ADDRESS,
-    tfxAddress: TFX_ADDRESS,
-    deployer: deployer.address,
-    timestamp: new Date().toISOString()
+  const deploymentData = {
+    network,
+    chainId,
+    timestamp,
+    deployer:         deployer.address,
+    adminWallet:      ADMIN_WALLET,
+    emergencyPauser:  EMERGENCY_PAUSER,
+    quorumThreshold:  QUORUM_THRESHOLD,
+    contracts: {
+      TrustForge: {
+        address: trustForgeAddress,
+        txHash:  trustForge.deploymentTransaction().hash,
+      },
+      TrustForgeDAO: {
+        address: daoAddress,
+        txHash:  dao.deploymentTransaction().hash,
+      },
+    },
+    // Tracks which setup steps have been completed
+    setupCompleted: {
+      deployed:              true,
+      setDAO:                false,
+      setTrustForgeAddress:  false,
+      transferredOwnership:  false,
+      verified:              false,
+    },
   };
 
-  console.log("\n📋 Deployment Info:");
-  console.log(JSON.stringify(deploymentInfo, null, 2));
+  const deploymentsDir  = path.join(__dirname, "deployments");
+  if (!fs.existsSync(deploymentsDir)) fs.mkdirSync(deploymentsDir, { recursive: true });
 
-  // Save to file
-  const fs = require('fs');
-  fs.writeFileSync(
-    'deployment-info.json',
-    JSON.stringify(deploymentInfo, null, 2)
-  );
-  console.log("\n💾 Saved to deployment-info.json");
+  const outputPath = path.join(deploymentsDir, `${network}-${chainId}.json`);
+  fs.writeFileSync(outputPath, JSON.stringify(deploymentData, null, 2));
 
-  // Next steps
-  console.log("\n📝 NEXT STEPS:");
-  console.log("\n1️⃣  Verify contract on Etherscan:");
-  console.log(`   npx hardhat verify --network ${hre.network.name} ${vaultAddress} "${USDC_ADDRESS}" "${TFX_ADDRESS}"`);
+  console.log(`\n  💾 Deployment data saved to: ${outputPath}`);
 
-  console.log("\n2️⃣  Add liquidity to the vault:");
-  console.log("   You need USDC and TFX tokens");
-  console.log("   Run: npx hardhat run scripts/add_liquidity.js --network sepolia");
-
-  console.log("\n3️⃣  Test the vault:");
-  console.log("   Run: npx hardhat run scripts/test_buy.js --network sepolia");
-
-  console.log("\n✅ Deployment Complete!\n");
+  // ── Summary ───────────────────────────────────────────────────────────────
+  console.log("\n╔══════════════════════════════════════════════════╗");
+  console.log("║            Deployment Complete ✅                  ║");
+  console.log("╚══════════════════════════════════════════════════╝");
+  console.log(`\n  TrustForge:    ${trustForgeAddress}`);
+  console.log(`  TrustForgeDAO: ${daoAddress}`);
+  console.log("\n⏭️  Next step:");
+  console.log("  npx hardhat run scripts/link.js --network", network);
+  console.log("");
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+main().catch((err) => {
+  console.error("\n❌ Deployment failed:", err.message);
+  process.exit(1);
+});

@@ -12,13 +12,10 @@ import { UserProvider } from "./context/usercontext";
 import Register from "./components/register";
 import UserProfile from "./components/UserProfile";
 import VouchingSystem from "./pages/VouchingSystem";
-import { VaultProvider } from "./context/VaultContext";
-import VaultDashboard from "./pages/VaultDashboard";
-import VaultAdmin from "./pages/VaultAdmin";
 function App() {
   return (
     <BlockchainProvider>
-        <VaultProvider>
+        
       <UserProvider>
       <DAOProvider>
       <Router>
@@ -33,13 +30,13 @@ function App() {
           <Route path="/register" element={< Register />} />
         <Route path="/user" element={<UserProfile />} />
         <Route path="/vouch" element={<VouchingSystem />} />
-            <Route path="/vault" element={<VaultDashboard />} />
-            <Route path="/admin" element={<VaultAdmin />} />
+            {/* <Route path="/vault" element={<VaultDashboard />} />
+            <Route path="/admin" element={<VaultAdmin />} /> */}
         </Routes>
       </Router>
       </DAOProvider>
       </UserProvider>
-      </VaultProvider>
+      
     </BlockchainProvider>
   );
 }

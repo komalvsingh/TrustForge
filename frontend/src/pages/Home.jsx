@@ -1,391 +1,576 @@
+import { useState, useEffect, useRef } from "react";
+import { Shield, TrendingUp, Lock, Users, Zap, CheckCircle, ArrowRight, ArrowUpRight, ChevronRight, Wifi, Star, Globe, Activity } from "lucide-react";
 import Navbar from "../components/Navbar";
-import { useBlockchain } from "../context/BlockchainContext";
-import { Shield, TrendingUp, Lock, Users, Zap, CheckCircle, ArrowRight, Sparkles, Award, Wifi } from "lucide-react";
+
+const useBlockchain = () => ({ account: null });
 
 const Home = () => {
   const { account } = useBlockchain();
+  const [activeBar, setActiveBar] = useState(11);
+  const [counter, setCounter] = useState({ vol: 0, users: 0, rate: 0 });
+  const [statsVisible, setStatsVisible] = useState(false);
+  const statsRef = useRef(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveBar(prev => (prev + 1) % 12);
+    }, 900);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) setStatsVisible(true);
+    }, { threshold: 0.3 });
+    if (statsRef.current) observer.observe(statsRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!statsVisible) return;
+    const steps = 60;
+    let step = 0;
+    const timer = setInterval(() => {
+      step++;
+      const ease = 1 - Math.pow(1 - step / steps, 3);
+      setCounter({ vol: Math.floor(ease * 24) / 10, users: Math.floor(ease * 12840), rate: Math.floor(ease * 947) / 10 });
+      if (step >= steps) clearInterval(timer);
+    }, 1600 / steps);
+    return () => clearInterval(timer);
+  }, [statsVisible]);
 
   const features = [
-    {
-      icon: Shield,
-      title: "Trust Over Collateral",
-      description: "Borrow without assets. Your on-chain behavior is your credit score.",
-      gradient: "from-blue-500 via-blue-400 to-purple-500"
-    },
-    {
-      icon: TrendingUp,
-      title: "Risk-Based Pricing",
-      description: "Lower trust = slightly higher interest. Build trust, earn better rates.",
-      gradient: "from-purple-500 via-purple-400 to-blue-500"
-    },
-    {
-      icon: Lock,
-      title: "Controlled Exposure",
-      description: "New users start small. Defaults hurt your score, not the system.",
-      gradient: "from-blue-600 via-indigo-500 to-purple-600"
-    },
-    {
-      icon: Users,
-      title: "No Gaming the System",
-      description: "New wallets = low trust = tiny limits. Cheating doesn't pay.",
-      gradient: "from-purple-600 via-violet-500 to-blue-600"
-    },
-    {
-      icon: Zap,
-      title: "Behavior-Driven",
-      description: "We don't ask who you are. We track how you behave.",
-      gradient: "from-blue-500 via-indigo-500 to-purple-500"
-    },
-    {
-      icon: CheckCircle,
-      title: "Financial Inclusion",
-      description: "No KYC, no collateral, no barriers. Just fair lending for all.",
-      gradient: "from-purple-500 via-fuchsia-500 to-blue-500"
-    }
+    { icon: Shield, title: "Trust Over Collateral", description: "Borrow without assets. Your on-chain behavior is your credit score.", tag: "CORE", stat: "0 collateral required" },
+    { icon: TrendingUp, title: "Risk-Based Pricing", description: "Lower trust = slightly higher interest. Build trust, earn better rates.", tag: "DYNAMIC", stat: "Rates from 3.2% APR" },
+    { icon: Lock, title: "Controlled Exposure", description: "New users start small. Defaults hurt your score, not the system.", tag: "SECURE", stat: "Progressive limits" },
+    { icon: Users, title: "No Gaming the System", description: "New wallets = low trust = tiny limits. Cheating doesn't pay.", tag: "ANTI-FRAUD", stat: "Sybil-resistant" },
+    { icon: Zap, title: "Behavior-Driven", description: "We don't ask who you are. We track how you behave.", tag: "ON-CHAIN", stat: "Real-time scoring" },
+    { icon: CheckCircle, title: "Financial Inclusion", description: "No KYC, no collateral, no barriers. Just fair lending for all.", tag: "INCLUSIVE", stat: "Global access" },
   ];
 
+  const recentTx = [
+    { addr: "0x3f...a2d1", amount: "+$1,200", trust: 784, time: "2m ago", type: "borrow" },
+    { addr: "0x8c...b391", amount: "-$540", trust: 612, time: "5m ago", type: "repay" },
+    { addr: "0x1d...f904", amount: "+$3,000", trust: 891, time: "11m ago", type: "borrow" },
+    { addr: "0x5a...c210", amount: "-$200", trust: 423, time: "18m ago", type: "repay" },
+  ];
+
+  const barHeights = [30, 45, 38, 55, 48, 62, 58, 72, 68, 80, 76, 88];
+
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden font-inter">
-      {/* Animated Background Grid */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
-      
-      {/* Gradient Orbs */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-500/30 rounded-full blur-[120px] animate-float"></div>
-      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-500/30 rounded-full blur-[120px] animate-float-delayed"></div>
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-indigo-500/20 rounded-full blur-[100px] animate-pulse-slow"></div>
+    <div style={{ fontFamily: "'DM Sans','Helvetica Neue',sans-serif", background: "#111", minHeight: "100vh", color: "#f0ede8", overflowX: "hidden" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        :root{
+          --bg:#111;--bg2:#1a1a1a;--bg3:#222;
+          --grey:#1d1d1d;--grey2:#252525;--grey3:#2c2c2c;
+          --accent:#b5d4a8;--accent2:#8fc47f;
+          --adim:rgba(181,212,168,0.1);--aglow:rgba(181,212,168,0.22);
+          --b:rgba(255,255,255,0.06);--b2:rgba(255,255,255,0.1);
+          --bh:rgba(181,212,168,0.28);
+          --t:#f0ede8;--tm:#999;--td:#555;
+          --mono:'DM Mono',monospace;
+        }
+        .nav-a{color:var(--td);text-decoration:none;font-size:14px;font-weight:500;transition:color .2s}
+        .nav-a:hover{color:var(--t)}
+        .btn-p{background:var(--accent);color:#0a150a;border:none;padding:13px 26px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .25s;font-family:'DM Sans',sans-serif;position:relative;overflow:hidden}
+        .btn-p:hover{background:var(--accent2);transform:translateY(-2px);box-shadow:0 8px 32px var(--aglow)}
+        .btn-g{background:transparent;color:var(--tm);border:1px solid var(--b2);padding:13px 26px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif}
+        .btn-g:hover{border-color:rgba(255,255,255,.18);color:var(--t);background:rgba(255,255,255,.03)}
+        .card{background:var(--bg2);border:1px solid var(--b);border-radius:16px;transition:all .3s}
+        .card:hover{border-color:var(--b2)}
+        .cardg{background:var(--grey);border:1px solid var(--b);border-radius:16px;transition:all .3s}
+        .cardg:hover{border-color:var(--b2);background:var(--grey2)}
+        .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--accent);background:var(--adim);border:1px solid rgba(181,212,168,.18);padding:3px 8px;border-radius:4px;display:inline-block}
+        .tgg{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--tm);background:rgba(255,255,255,.05);border:1px solid var(--b2);padding:3px 8px;border-radius:4px;display:inline-block}
+        .sc{font-family:var(--mono);font-size:11px;color:var(--accent);background:var(--adim);padding:2px 7px;border-radius:4px}
+        .fc{background:var(--grey);border:1px solid var(--b);border-radius:16px;padding:28px;transition:all .3s;position:relative;overflow:hidden;cursor:pointer}
+        .fc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:opacity .4s}
+        .fc::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(181,212,168,.05) 0%,transparent 60%);opacity:0;transition:opacity .4s}
+        .fc:hover::before,.fc:hover::after{opacity:1}
+        .fc:hover{border-color:rgba(181,212,168,.2);transform:translateY(-3px);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+        .iw{width:44px;height:44px;border-radius:11px;background:var(--adim);border:1px solid rgba(181,212,168,.15);display:flex;align-items:center;justify-content:center;margin-bottom:18px;transition:all .3s}
+        .fc:hover .iw{background:rgba(181,212,168,.18);border-color:rgba(181,212,168,.35);transform:scale(1.06)}
+        .cb{flex:1;border-radius:3px 3px 0 0;transition:all .5s ease;cursor:pointer;background:rgba(181,212,168,.13)}
+        .cb.act{background:var(--accent);box-shadow:0 0 14px rgba(181,212,168,.4)}
+        .cb:hover{background:rgba(181,212,168,.38)}
+        .tx-r{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--b);cursor:pointer;transition:all .2s;border-radius:8px}
+        .tx-r:last-child{border-bottom:none}
+        .tx-r:hover{background:rgba(255,255,255,.025);margin:0 -14px;padding:12px 14px}
+        .prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent2),var(--accent));animation:pfill 1.4s .5s ease forwards;width:0;box-shadow:0 0 10px var(--aglow)}
+        .ld{width:7px;height:7px;background:var(--accent);border-radius:50%;animation:pdot 2s infinite;position:relative;flex-shrink:0}
+        .ld::after{content:'';position:absolute;inset:-3px;border:1px solid var(--accent);border-radius:50%;animation:pring 2s infinite}
+        .noise{position:fixed;inset:0;pointer-events:none;z-index:999;opacity:.018;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:150px}
+        @keyframes pfill{from{width:0}to{width:78.4%}}
+        @keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+        @keyframes pring{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.4);opacity:0}}
+        @keyframes fu{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes sl{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes sr{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+        @keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(800%);opacity:0}}
+        @keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+        @keyframes bglow{0%,100%{box-shadow:0 0 0 1px rgba(181,212,168,.08)}50%{box-shadow:0 0 0 1px rgba(181,212,168,.3),0 0 40px rgba(181,212,168,.08)}}
+        @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        .fu{animation:fu .7s ease forwards}
+        .sl{animation:sl .7s ease forwards;opacity:0}
+        .sr{animation:sr .7s ease forwards;opacity:0}
+        .d1{animation-delay:.1s;opacity:0}
+        .d2{animation-delay:.22s;opacity:0}
+        .d3{animation-delay:.34s;opacity:0}
+        .d4{animation-delay:.46s;opacity:0}
+        .d5{animation-delay:.58s;opacity:0}
+        .bglow{animation:bglow 3s infinite}
+        .plan-card{padding:28px;border-radius:16px;transition:all .3s}
+        .plan-card:hover{transform:translateY(-4px)}
+        .ticker-w{overflow:hidden;white-space:nowrap;flex:1}
+        .ticker-i{display:inline-flex;animation:ticker 30s linear infinite}
+        .t-item{display:inline-flex;align-items:center;gap:8px;padding:0 28px;font-family:var(--mono);font-size:11px;color:var(--td)}
+        .t-dot{width:3px;height:3px;border-radius:50%;background:var(--b2)}
+        .sep{height:1px;background:var(--b)}
+        .section-grey{background:var(--grey);border-top:1px solid var(--b);border-bottom:1px solid var(--b)}
+        .shimmer-bg{background:linear-gradient(90deg,var(--bg3) 25%,rgba(255,255,255,.06) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 2s infinite;border-radius:6px}
+      `}</style>
 
-      <Navbar />
+      <div className="noise"></div>
 
-      <main className="relative max-w-7xl mx-auto px-6 py-16 md:py-24">
-        {/* Hero Section */}
-        <div className="text-center mb-32">
-          {/* Top Badge */}
-          <div className="inline-block mb-8 animate-fade-in-down">
-            <div className="relative group cursor-pointer">
-              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-500"></div>
-              <div className="relative px-6 py-3 bg-black ring-1 ring-white/10 rounded-full flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-blue-400 animate-pulse" />
-                <span className="text-sm font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                  Next-Gen Decentralized Lending
-                </span>
-                <Sparkles className="w-4 h-4 text-purple-400 animate-pulse" />
-              </div>
-            </div>
-          </div>
-
-          {/* Main Title */}
-          <h1 className="text-7xl md:text-9xl font-black mb-6 tracking-tight animate-fade-in-up">
-            <span className="inline-block bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient-x">
-              TrustForge
-            </span>
-          </h1>
-
-          <div className="relative inline-block mb-8 animate-fade-in-up animation-delay-200">
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-2">
-              Trust-Based, Collateral-Free Lending
-            </h2>
-            <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent animate-pulse"></div>
-          </div>
-
-          <p className="text-gray-400 text-lg md:text-xl max-w-3xl mx-auto mb-4 leading-relaxed animate-fade-in-up animation-delay-300 font-light">
-            Revolutionizing micro-lending through on-chain trust scores, transparent smart contracts, and wallet maturity analysis.
-          </p>
-
-          <p className="text-2xl font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-14 animate-fade-in-up animation-delay-400">
-            No Collateral • No KYC • Just Trust
-          </p>
-
-          {/* Connection Status */}
-          <div className="mb-16 animate-fade-in-up animation-delay-500">
-            {account ? (
-              <div className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 backdrop-blur-xl border border-blue-500/30 rounded-2xl hover:border-blue-400/50 transition-all duration-300 group">
-                <div className="relative flex items-center justify-center">
-                  <div className="absolute w-3 h-3 bg-blue-400 rounded-full animate-ping"></div>
-                  <Wifi className="w-5 h-5 text-blue-400 relative z-10" />
-                </div>
-                <span className="text-blue-300 font-semibold text-lg">Connected & Ready</span>
-                <CheckCircle className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-3 px-8 py-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl hover:border-purple-500/30 transition-all duration-300 cursor-pointer group">
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
-                <span className="text-gray-400 font-semibold text-lg group-hover:text-gray-300 transition-colors">
-                  Connect Wallet to Begin
-                </span>
-              </div>
+      {/* TICKER */}
+      <div style={{ background: "#0c0c0c", borderBottom: "1px solid var(--b)", height: 34, display: "flex", alignItems: "center" }}>
+        <div className="ticker-w">
+          <div className="ticker-i">
+            {[...Array(2)].map((_, ri) =>
+              ["ETH / $3,241 ▲2.1%", "Trust Score: 784 ✦", "Active Loans: 12,840", "Total Volume: $2.4M", "Repayment Rate: 94.7%", "Avg APR: 5.8%", "New Wallets: 312 today", "Protocol Health: ✓ Excellent"].map((item, i) => (
+                <span key={`${ri}-${i}`} className="t-item"><span className="t-dot"></span>{item}</span>
+              ))
             )}
           </div>
+        </div>
+        <div style={{ padding: "0 14px", borderLeft: "1px solid var(--b)", display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
+          <div className="ld" style={{ width: 6, height: 6 }}></div>
+          <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--accent)", letterSpacing: ".08em" }}>LIVE</span>
+        </div>
+      </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto animate-fade-in-up animation-delay-600">
-            <div className="group relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-blue-500/50 transition-all duration-500 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <Award className="w-10 h-10 text-blue-400 mb-4 mx-auto group-hover:scale-110 group-hover:rotate-12 transition-all duration-500" />
-              <div className="text-5xl font-black bg-gradient-to-br from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">100%</div>
-              <div className="text-gray-400 font-medium">Trust-Based</div>
+      <Navbar/>
+
+      {/* HERO */}
+      <section style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 24px 80px", position: "relative" }}>
+        <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 700, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(181,212,168,.05) 0%, transparent 65%)", pointerEvents: "none" }}></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 56, alignItems: "center" }}>
+          {/* LEFT */}
+          <div>
+            <div className="fu" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28, padding: "7px 14px", borderRadius: 99, background: "rgba(181,212,168,.07)", border: "1px solid rgba(181,212,168,.2)" }}>
+              <div className="ld"></div>
+              <span style={{ fontSize: 11, color: "var(--accent)", fontFamily: "var(--mono)", letterSpacing: ".07em" }}>LIVE ON ETHEREUM MAINNET</span>
             </div>
-
-            <div className="group relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-purple-500/50 transition-all duration-500 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <Shield className="w-10 h-10 text-purple-400 mb-4 mx-auto group-hover:scale-110 group-hover:rotate-12 transition-all duration-500" />
-              <div className="text-5xl font-black bg-gradient-to-br from-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">0%</div>
-              <div className="text-gray-400 font-medium">Collateral</div>
+            <h1 className="fu d1" style={{ fontSize: 58, fontWeight: 700, lineHeight: 1.04, letterSpacing: "-.04em", marginBottom: 22 }}>
+              Lend without<br />
+              <span style={{ color: "var(--accent)", position: "relative", display: "inline-block" }}>
+                collateral.
+                <span style={{ position: "absolute", bottom: -4, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, var(--accent), transparent)", borderRadius: 2 }}></span>
+              </span><br />Build trust.
+            </h1>
+            <p className="fu d2" style={{ fontSize: 16, color: "var(--td)", lineHeight: 1.75, marginBottom: 36, maxWidth: 430 }}>
+              TrustForge replaces collateral with on-chain reputation. Your wallet history, transaction behavior, and repayment record determine your borrowing power.
+            </p>
+            <div className="fu d3" style={{ display: "flex", gap: 12, marginBottom: 36 }}>
+              <button className="btn-p" style={{ padding: "14px 28px", fontSize: 15 }}>Start Borrowing <ArrowRight size={15} /></button>
+              <button className="btn-g" style={{ padding: "14px 28px", fontSize: 15 }}>View Protocol</button>
             </div>
+            <div className="fu d4" style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <div style={{ display: "flex" }}>
+                {["#b5d4a8","#8fc47f","#6daf5c","#4d9a3a","#2d8520"].map((c, i) => (
+                  <div key={i} style={{ width: 28, height: 28, borderRadius: "50%", background: c, border: "2px solid #111", marginLeft: i > 0 ? -9 : 0, boxShadow: "0 2px 10px rgba(0,0,0,.5)" }}></div>
+                ))}
+              </div>
+              <span style={{ fontSize: 13, color: "var(--td)", lineHeight: 1.6 }}>
+                <strong style={{ color: "var(--t)" }}>12,840</strong> borrowers already building trust
+              </span>
+            </div>
+          </div>
 
-            <div className="group relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-indigo-500/50 transition-all duration-500 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <Sparkles className="w-10 h-10 text-indigo-400 mb-4 mx-auto group-hover:scale-110 group-hover:rotate-12 transition-all duration-500" />
-              <div className="text-5xl font-black bg-gradient-to-br from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-2">∞</div>
-              <div className="text-gray-400 font-medium">Transparent</div>
+          {/* RIGHT — dashboard card */}
+          <div className="sl d2">
+            <div className="card bglow" style={{ padding: 24, borderRadius: 20, position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", left: 0, right: 0, height: "1px", background: "linear-gradient(90deg,transparent,rgba(181,212,168,.4),transparent)", animation: "scan 5s linear infinite", pointerEvents: "none", zIndex: 1 }}></div>
+              {/* Trust score */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+                <div>
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)", marginBottom: 6, letterSpacing: ".06em" }}>TRUST SCORE</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                    <span style={{ fontSize: 42, fontWeight: 700, letterSpacing: "-.04em", lineHeight: 1 }}>784</span>
+                    <span className="sc">+12 ↑</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+                  <span className="tgg">TRUSTED TIER</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div className="ld" style={{ width: 6, height: 6 }}></div>
+                    <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)" }}>Live</span>
+                  </div>
+                </div>
+              </div>
+              {/* Score bar */}
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ height: 6, background: "var(--bg3)", borderRadius: 99, overflow: "hidden" }}>
+                  <div className="prog-fill" style={{ height: "100%", borderRadius: 99 }}></div>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)" }}>0</span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--accent)" }}>784 / 1000</span>
+                </div>
+              </div>
+              {/* Borrow limit */}
+              <div style={{ background: "var(--bg3)", borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, color: "var(--td)" }}>Borrow Limit</span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--t)" }}>$3,200 / $5,000</span>
+                </div>
+                <div style={{ height: 5, borderRadius: 99, background: "var(--bg2)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: "64%", background: "var(--accent)", borderRadius: 99 }}></div>
+                </div>
+              </div>
+              {/* Mini chart */}
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, color: "var(--td)" }}>Score History</span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tm)" }}>12W</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 52 }}>
+                  {barHeights.map((h, i) => (
+                    <div key={i} className={`cb ${i === activeBar ? "act" : ""}`} style={{ height: `${h}%` }}></div>
+                  ))}
+                </div>
+              </div>
+              {/* Stats */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[{ l: "Active Loan", v: "$1,200", s: "Due Mar 15" }, { l: "Interest Rate", v: "4.2%", s: "APR trust-based" }].map((item, i) => (
+                  <div key={i} style={{ background: "var(--bg3)", borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 11, color: "var(--td)", marginBottom: 4 }}>{item.l}</div>
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 17, fontWeight: 600, color: "var(--accent)", marginBottom: 2 }}>{item.v}</div>
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)" }}>{item.s}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
+      </section>
 
-        {/* Features Section */}
-        <div className="mb-32">
-          <div className="text-center mb-16">
-            <h3 className="text-4xl md:text-5xl font-bold text-white mb-4 animate-fade-in-up">
-              How It <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Works</span>
-            </h3>
-            <p className="text-gray-400 text-lg font-light animate-fade-in-up animation-delay-100">
-              Six revolutionary principles powering the future of lending
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => {
-              const Icon = feature.icon;
+      {/* STATS STRIP — grey section */}
+      <div ref={statsRef} style={{ background: "var(--grey)", borderTop: "1px solid var(--b)", borderBottom: "1px solid var(--b)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}>
+            {[
+              { label: "Total Volume Lent", value: `$${counter.vol.toFixed(1)}M`, change: "+18.2%", icon: TrendingUp },
+              { label: "Active Borrowers", value: counter.users.toLocaleString(), change: "+4.1%", icon: Users },
+              { label: "Repayment Rate", value: `${counter.rate}%`, change: "+0.3%", icon: CheckCircle },
+              { label: "Avg Trust Score", value: "641", change: "+8pts", icon: Star },
+            ].map((s, i) => {
+              const Icon = s.icon;
               return (
-                <div
-                  key={index}
-                  className="group relative bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-white/20 transition-all duration-500 animate-fade-in-up hover:scale-105 hover:-translate-y-2"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  {/* Glow Effect */}
-                  <div className={`absolute -inset-0.5 bg-gradient-to-r ${feature.gradient} rounded-3xl opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500`}></div>
-
-                  <div className="relative">
-                    {/* Animated Icon Container */}
-                    <div className="mb-6 relative">
-                      <div className={`absolute inset-0 bg-gradient-to-r ${feature.gradient} rounded-2xl blur-md opacity-50 group-hover:opacity-100 transition-opacity duration-500`}></div>
-                      <div className={`relative w-16 h-16 bg-gradient-to-r ${feature.gradient} rounded-2xl flex items-center justify-center transform group-hover:rotate-6 transition-transform duration-500`}>
-                        <Icon className="w-8 h-8 text-white" />
-                      </div>
-                    </div>
-
-                    {/* Title */}
-                    <h4 className="text-2xl font-bold text-white mb-4 group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-purple-400 group-hover:bg-clip-text group-hover:text-transparent transition-all duration-300">
-                      {feature.title}
-                    </h4>
-
-                    {/* Description */}
-                    <p className="text-gray-400 leading-relaxed mb-6 font-light">
-                      {feature.description}
-                    </p>
-
-                    {/* Hover Arrow */}
-                    <div className="flex items-center gap-2 text-blue-400 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-0 group-hover:translate-x-2">
-                      <span className="text-sm font-semibold">Explore</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </div>
+                <div key={i} style={{ padding: "32px 24px", borderRight: i < 3 ? "1px solid var(--b)" : "none" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                    <Icon size={15} color="var(--td)" strokeWidth={1.5} />
+                    <span className="sc">{s.change}</span>
                   </div>
-
-                  {/* Corner Accent */}
-                  <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-.04em", marginBottom: 4, fontFamily: "var(--mono)" }}>{s.value}</div>
+                  <div style={{ fontSize: 12, color: "var(--td)" }}>{s.label}</div>
                 </div>
               );
             })}
           </div>
         </div>
+      </div>
 
-        {/* CTA Section */}
-        <div className="relative animate-fade-in-up">
-          {/* Background Glow */}
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-blue-500/20 rounded-3xl blur-3xl"></div>
+      {/* FEATURES — grey bg */}
+      <section style={{ background: "var(--grey)", padding: "72px 0 80px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 48 }}>
+            <div style={{ flex: 1, height: 1, background: "var(--b)" }}></div>
+            <span className="tag">HOW IT WORKS</span>
+            <div style={{ flex: 1, height: 1, background: "var(--b)" }}></div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 36 }}>
+            <h2 style={{ fontSize: 40, fontWeight: 700, letterSpacing: "-.035em", lineHeight: 1.08 }}>
+              Six principles<br />powering the protocol
+            </h2>
+            <button className="btn-g" style={{ display: "flex", alignItems: "center", gap: 6 }}>Read whitepaper <ArrowUpRight size={14} /></button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+            {features.map((f, i) => {
+              const Icon = f.icon;
+              return (
+                <div key={i} className="fc" style={{ animationDelay: `${i * 80}ms` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+                    <div className="iw"><Icon size={18} color="var(--accent)" strokeWidth={1.8} /></div>
+                    <span className="tag">{f.tag}</span>
+                  </div>
+                  <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, letterSpacing: "-.02em" }}>{f.title}</h3>
+                  <p style={{ fontSize: 13.5, color: "var(--td)", lineHeight: 1.7, marginBottom: 20 }}>{f.description}</p>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid var(--b)" }}>
+                    <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--tm)" }}>{f.stat}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--td)" }}>
+                      <span style={{ fontSize: 12 }}>Explore</span><ChevronRight size={12} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-          <div className="relative bg-gradient-to-br from-white/10 to-white/[0.02] backdrop-blur-2xl border border-white/20 rounded-3xl p-16 overflow-hidden">
-            {/* Animated Gradient Border */}
-            <div className="absolute inset-0 rounded-3xl overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 opacity-20 animate-gradient-x"></div>
+      {/* DISCOVER — dark grey like Monarch */}
+      <section style={{ background: "#181818", padding: "80px 0", borderTop: "1px solid var(--b)", borderBottom: "1px solid var(--b)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+            <div>
+              <div className="tag" style={{ marginBottom: 20 }}>GET STARTED</div>
+              <h2 style={{ fontSize: 42, fontWeight: 700, letterSpacing: "-.04em", lineHeight: 1.08, marginBottom: 14 }}>
+                Discover what's<br />
+                <em style={{ fontStyle: "italic", color: "var(--accent)", fontWeight: 600 }}>amazing</em> about<br />
+                TrustForge
+              </h2>
+              <div style={{ width: 44, height: 2, background: "var(--accent)", borderRadius: 2, marginBottom: 20 }}></div>
+              <p style={{ fontSize: 15, color: "var(--td)", lineHeight: 1.75, marginBottom: 32, maxWidth: 370 }}>
+                Track and manage decentralized loans, from repayment schedules to refinancing options — all powered by your on-chain trust score.
+              </p>
+              <button className="btn-p">Get the App <ArrowRight size={15} /></button>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 28 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--grey)", border: "1px solid var(--b2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Globe size={18} color="var(--td)" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>500K+ users</div>
+                  <div style={{ fontSize: 12, color: "var(--td)" }}>Most downloaded DeFi lending app</div>
+                </div>
+                <div style={{ display: "flex", gap: 2, marginLeft: 8 }}>
+                  {[1,2,3,4,5].map(s => <Star key={s} size={11} color="var(--accent)" fill="var(--accent)" />)}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {[
+                { n: "1.", icon: Wifi, title: "All your wallets, one place", desc: "Connect any EVM wallet. No KYC, no registration — just your address.", green: true },
+                { n: "2.", icon: Activity, title: "Get personalized insights", desc: "We analyze your on-chain history and generate a real-time Trust Score.", green: false },
+                { n: "3.", icon: Shield, title: "Your finances, safe and secure", desc: "All positions are on-chain. No custodial risk. Fully transparent.", green: false },
+              ].map((step, i) => (
+                <div key={i} style={{
+                  padding: "20px 22px", borderRadius: 14,
+                  background: step.green ? "var(--accent)" : "var(--grey)",
+                  border: step.green ? "none" : "1px solid var(--b)",
+                  display: "flex", alignItems: "flex-start", gap: 16, cursor: "pointer", transition: "all .25s"
+                }}>
+                  <div style={{ minWidth: 38, height: 38, borderRadius: 10, background: step.green ? "rgba(0,0,0,.12)" : "var(--bg3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <step.icon size={16} color={step.green ? "#0a150a" : "var(--accent)"} strokeWidth={1.8} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: step.green ? "#0a150a" : "var(--t)", marginBottom: 4 }}>{step.title}</div>
+                      <span style={{ fontFamily: "var(--mono)", fontSize: 22, fontWeight: 700, color: step.green ? "rgba(10,21,10,.2)" : "var(--b2)", lineHeight: 1 }}>{step.n}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: step.green ? "rgba(10,21,10,.6)" : "var(--td)", lineHeight: 1.6 }}>{step.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* LIVE ACTIVITY + INSIGHTS — grey */}
+      <section style={{ background: "var(--grey)", padding: "72px 0 80px", borderBottom: "1px solid var(--b)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48 }}>
+            {/* Activity feed */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div>
+                  <div className="tag" style={{ marginBottom: 10 }}>STATISTICS</div>
+                  <h3 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em" }}>Live activity feed</h3>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <div className="ld" style={{ width: 6, height: 6 }}></div>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--accent)" }}>LIVE</span>
+                </div>
+              </div>
+              <div style={{ background: "var(--bg2)", border: "1px solid var(--b)", borderRadius: 14, padding: "0 14px" }}>
+                {recentTx.map((tx, i) => (
+                  <div key={i} className="tx-r">
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 99, background: tx.type === "borrow" ? "var(--adim)" : "rgba(255,255,255,.04)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {tx.type === "borrow" ? <ArrowRight size={13} color="var(--accent)" /> : <ArrowUpRight size={13} color="var(--tm)" />}
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: "var(--mono)", fontSize: 13, color: "var(--t)", marginBottom: 2 }}>{tx.addr}</div>
+                        <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)" }}>Score: {tx.trust}</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 600, color: tx.type === "borrow" ? "var(--accent)" : "var(--tm)", marginBottom: 2 }}>{tx.amount}</div>
+                      <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)" }}>{tx.time}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Decorative Elements */}
-            <div className="absolute top-0 right-0 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
-            <div className="absolute bottom-0 left-0 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse-slow animation-delay-1000"></div>
-
-            <div className="relative z-10 text-center">
-              <h3 className="text-4xl md:text-6xl font-black text-white mb-6">
-                Ready to Build Your{" "}
-                <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                  Trust?
-                </span>
-              </h3>
-              
-              <p className="text-gray-300 text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed font-light">
-                Start with small loans, build your on-chain reputation, and unlock better rates as you prove yourself trustworthy.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-                <button className="group relative px-10 py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-[0_0_40px_rgba(59,130,246,0.5)] hover:scale-105">
-                  <span className="relative z-10 flex items-center gap-3">
-                    Start Lending
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                </button>
-
-                <button className="px-10 py-5 bg-transparent border-2 border-white/20 text-white font-bold text-lg rounded-2xl hover:border-blue-500/50 hover:bg-blue-500/5 transition-all duration-300 backdrop-blur-sm">
-                  View Documentation
-                </button>
+            {/* Insights */}
+            <div>
+              <div style={{ marginBottom: 20 }}>
+                <div className="tag" style={{ marginBottom: 10 }}>INSIGHTS</div>
+                <h3 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em" }}>Get personalized insights</h3>
+              </div>
+              <div style={{ background: "var(--bg2)", border: "1px solid var(--b)", borderRadius: 14, padding: 20 }}>
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 10 }}>
+                    <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)" }}>SCORE HISTORY</span>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--accent)" }}>$ 4,118</span>
+                      <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--tm)" }}>$ 2,567</span>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 80 }}>
+                    {[22,35,28,50,42,60,55,75,65,85,70,95,80,88].map((h, i) => (
+                      <div key={i} style={{ flex: 1, borderRadius: "3px 3px 0 0", height: `${h}%`, background: i === 13 ? "var(--accent)" : i >= 10 ? "rgba(181,212,168,.28)" : "rgba(181,212,168,.09)", boxShadow: i === 13 ? "0 0 12px rgba(181,212,168,.4)" : "none", transition: "all .3s" }}></div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                    {["Jan","Feb","Mar","Apr","May","Jun","Jul"].map(m => (
+                      <span key={m} style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--td)" }}>{m}</span>
+                    ))}
+                  </div>
+                </div>
+                {[
+                  { label: "Wallet Age", value: "2.3 years", pct: 70 },
+                  { label: "Repayment History", value: "100%", pct: 100 },
+                  { label: "Activity Score", value: "High", pct: 85 },
+                ].map((item, i) => (
+                  <div key={i} style={{ marginBottom: i < 2 ? 14 : 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                      <span style={{ fontSize: 12, color: "var(--td)" }}>{item.label}</span>
+                      <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--t)" }}>{item.value}</span>
+                    </div>
+                    <div style={{ height: 4, borderRadius: 99, background: "var(--bg3)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${item.pct}%`, background: "linear-gradient(90deg,var(--accent2),var(--accent))", borderRadius: 99 }}></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
+      </section>
 
-        {/* Footer Info */}
-        <div className="mt-24 text-center animate-fade-in-up animation-delay-800">
-          <p className="text-gray-600 text-sm mb-6 font-light">
-            Secured by Blockchain • Fully Transparent • Community Driven
-          </p>
-          <div className="flex justify-center gap-8 text-gray-500 text-sm">
-            <span className="hover:text-blue-400 transition-colors cursor-pointer font-medium">Documentation</span>
-            <span className="text-gray-700">•</span>
-            <span className="hover:text-purple-400 transition-colors cursor-pointer font-medium">Whitepaper</span>
-            <span className="text-gray-700">•</span>
-            <span className="hover:text-blue-400 transition-colors cursor-pointer font-medium">Community</span>
+      {/* PLANS — darker grey like Monarch pricing */}
+      <section style={{ background: "#181818", padding: "80px 0", borderBottom: "1px solid var(--b)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 40 }}>
+            <div>
+              <div className="tag" style={{ marginBottom: 14 }}>TRUST TIERS</div>
+              <h2 style={{ fontSize: 40, fontWeight: 700, letterSpacing: "-.035em" }}>Choose a plan</h2>
+            </div>
+            <p style={{ fontSize: 14, color: "var(--td)", maxWidth: 260, textAlign: "right", lineHeight: 1.7 }}>
+              Your tier auto-upgrades as your trust score grows over time.
+            </p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+            {[
+              { tier: "Starter", score: "0–400 TRUST", limit: "$500", rate: "12% APR", perMonth: "per month", features: ["Up to $500 borrow limit", "Basic trust scoring", "Weekly repayments", "Email support"], cta: "Begin building", featured: false },
+              { tier: "Growth", score: "401–700 TRUST", limit: "$3,000", rate: "6.5% APR", perMonth: "per month", features: ["Up to $3,000 borrow limit", "Advanced trust analytics", "Flexible repayments", "30-day moneyback guarantee"], cta: "Start borrowing", featured: true, badge: "POPULAR" },
+              { tier: "Elite", score: "701–1000 TRUST", limit: "$25,000", rate: "3.2% APR", perMonth: "per month", features: ["Up to $25,000 borrow limit", "Priority scoring", "Custom repayment terms", "Dedicated training + API access"], cta: "Book a Demo", featured: false },
+            ].map((plan, i) => (
+              <div key={i} className="plan-card" style={{
+                background: plan.featured ? "var(--accent)" : "var(--grey)",
+                border: `1px solid ${plan.featured ? "transparent" : "var(--b)"}`,
+                color: plan.featured ? "#0a150a" : "var(--t)",
+                boxShadow: plan.featured ? "0 0 60px rgba(181,212,168,.18), 0 0 120px rgba(181,212,168,.07)" : "none",
+                position: "relative", overflow: "hidden"
+              }}>
+                {plan.badge && (
+                  <div style={{ position: "absolute", top: 16, right: 16, fontFamily: "var(--mono)", fontSize: 9, letterSpacing: ".1em", background: "#0a150a", color: "var(--accent)", padding: "3px 8px", borderRadius: 4 }}>{plan.badge}</div>
+                )}
+                <div style={{ fontFamily: "var(--mono)", fontSize: 10, letterSpacing: ".08em", opacity: .55, marginBottom: 8 }}>{plan.score}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em", marginBottom: 18 }}>{plan.tier}</div>
+                <div style={{ marginBottom: 4 }}>
+                  <span style={{ fontSize: 46, fontWeight: 700, letterSpacing: "-.04em" }}>{plan.limit}</span>
+                </div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 17, fontWeight: 600, opacity: .65, marginBottom: 6 }}>{plan.rate}</div>
+                <div style={{ fontSize: 12, opacity: .5, marginBottom: 24, fontFamily: "var(--mono)" }}>{plan.perMonth}</div>
+                <div style={{ marginBottom: 24, display: "flex", flexDirection: "column", gap: 10 }}>
+                  {plan.features.map((f, fi) => (
+                    <div key={fi} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      <CheckCircle size={13} color={plan.featured ? "#0a150a" : "var(--accent)"} strokeWidth={2} style={{ marginTop: 1, flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, opacity: plan.featured ? .75 : .8, lineHeight: 1.5 }}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+                <button style={{
+                  width: "100%", padding: "13px", borderRadius: 10,
+                  background: plan.featured ? "#0a150a" : "rgba(255,255,255,.06)",
+                  color: plan.featured ? "var(--accent)" : "var(--t)",
+                  border: plan.featured ? "none" : "1px solid var(--b2)",
+                  fontWeight: 600, fontSize: 14, cursor: "pointer",
+                  fontFamily: "DM Sans,sans-serif", transition: "all .2s"
+                }}>{plan.cta}</button>
+              </div>
+            ))}
           </div>
         </div>
-      </main>
+      </section>
 
-      <style jsx>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+      {/* CTA */}
+      <section style={{ maxWidth: 1200, margin: "0 auto", padding: "72px 24px 80px" }}>
+        <div style={{ background: "var(--grey)", border: "1px solid var(--b)", borderRadius: 20, padding: "60px 64px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(181,212,168,.07) 0%, transparent 68%)", pointerEvents: "none" }}></div>
+          <div>
+            <h2 style={{ fontSize: 40, fontWeight: 700, letterSpacing: "-.04em", marginBottom: 12 }}>
+              Ready to build your <span style={{ color: "var(--accent)" }}>Trust?</span>
+            </h2>
+            <p style={{ fontSize: 15, color: "var(--td)", maxWidth: 420, lineHeight: 1.75 }}>
+              Start with small loans, build your on-chain reputation, and unlock better rates as you prove yourself trustworthy.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
+            <button className="btn-g" style={{ whiteSpace: "nowrap" }}>View Docs</button>
+            <button className="btn-p" style={{ whiteSpace: "nowrap", padding: "14px 28px" }}>Start Lending <ArrowRight size={15} /></button>
+          </div>
+        </div>
+      </section>
 
-        .font-inter {
-          font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        }
-
-        .bg-grid-pattern {
-          background-image: 
-            linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
-          background-size: 50px 50px;
-        }
-
-        @keyframes gradient-x {
-          0%, 100% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-        }
-
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-20px);
-          }
-        }
-
-        @keyframes float-delayed {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(20px);
-          }
-        }
-
-        @keyframes fade-in-down {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes fade-in-up {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes pulse-slow {
-          0%, 100% {
-            opacity: 0.3;
-          }
-          50% {
-            opacity: 0.6;
-          }
-        }
-
-        .animate-gradient-x {
-          animation: gradient-x 3s ease infinite;
-        }
-
-        .animate-float {
-          animation: float 8s ease-in-out infinite;
-        }
-
-        .animate-float-delayed {
-          animation: float-delayed 8s ease-in-out infinite;
-        }
-
-        .animate-fade-in-down {
-          animation: fade-in-down 0.8s ease-out forwards;
-        }
-
-        .animate-fade-in-up {
-          animation: fade-in-up 0.8s ease-out forwards;
-          opacity: 0;
-        }
-
-        .animate-pulse-slow {
-          animation: pulse-slow 4s ease-in-out infinite;
-        }
-
-        .animation-delay-100 {
-          animation-delay: 0.1s;
-        }
-
-        .animation-delay-200 {
-          animation-delay: 0.2s;
-        }
-
-        .animation-delay-300 {
-          animation-delay: 0.3s;
-        }
-
-        .animation-delay-400 {
-          animation-delay: 0.4s;
-        }
-
-        .animation-delay-500 {
-          animation-delay: 0.5s;
-        }
-
-        .animation-delay-600 {
-          animation-delay: 0.6s;
-        }
-
-        .animation-delay-800 {
-          animation-delay: 0.8s;
-        }
-
-        .animation-delay-1000 {
-          animation-delay: 1s;
-        }
-      `}</style>
+      {/* FOOTER */}
+      <footer style={{ background: "var(--grey)", borderTop: "1px solid var(--b)", padding: "36px 0" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Shield size={12} color="#0a150a" strokeWidth={2.5} />
+              </div>
+              <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-.02em" }}>TrustForge</span>
+            </div>
+            <div style={{ display: "flex", gap: 32 }}>
+              {["Documentation","Whitepaper","Community","GitHub"].map(link => (
+                <a key={link} href="#" style={{ fontSize: 13, color: "var(--td)", textDecoration: "none", transition: "color .2s" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "var(--t)"}
+                  onMouseLeave={e => e.currentTarget.style.color = "var(--td)"}>{link}</a>
+              ))}
+            </div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--td)" }}>© 2025 TrustForge</div>
+          </div>
+          <div className="sep" style={{ marginBottom: 20 }}></div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "var(--td)" }}>Secured by blockchain • Fully transparent • Community driven</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <div className="ld" style={{ width: 6, height: 6 }}></div>
+              <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--accent)" }}>All systems operational</span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
