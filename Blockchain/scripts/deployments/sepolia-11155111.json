@@ -1,28 +1,26 @@
 {
   "network": "sepolia",
   "chainId": "11155111",
-  "timestamp": "2026-02-23T16:15:01.455Z",
+  "timestamp": "2026-02-24T03:55:26.728Z",
   "deployer": "0x937dCeeAdBFD02D5453C7937E2217957D74E912d",
   "adminWallet": "0x937dCeeAdBFD02D5453C7937E2217957D74E912d",
   "emergencyPauser": "0x937dCeeAdBFD02D5453C7937E2217957D74E912d",
   "quorumThreshold": "100000000",
   "contracts": {
     "TrustForge": {
-      "address": "0xeC1aD623cbA36c215635f3e5Cd66225898269cce",
-      "txHash": "0x76408c0723a2cdfcdf35b610208d19e15decc637271f98a586768f386119fdfb",
-      "ownershipTxHash": "0xc5d29808ff02f3f8693e2fedac57111bfa4c55f2f18bf45673ade7800e5c5cde"
+      "address": "0xf4eD9D7332C8F5809AA66a968216051703cD73B3",
+      "txHash": "0x8ad9362aed38cd1af5ccb2fa0cfcadbfcaee3d13b3897723599e22aeabaabad0"
     },
     "TrustForgeDAO": {
-      "address": "0x230273cAbcD58Ecd62fcC820CA4d60d1bc2403aD",
-      "txHash": "0x5fa4ab9e4d2050a36071ca0f63a00258da9e173e9564e0d794753313a809b7d5"
+      "address": "0x42a119135D849CF787B5e1a12AB2EC3c81db7F51",
+      "txHash": "0xfa363859aa555a96e9871eff51cf2c573c03964bec3d4268296de6c96750676b"
     }
   },
   "setupCompleted": {
     "deployed": true,
-    "setDAO": true,
-    "setTrustForgeAddress": true,
-    "transferredOwnership": true,
-    "verified": true
-  },
-  "verifiedAt": "2026-02-23T16:24:21.651Z"
+    "setDAO": false,
+    "setTrustForgeAddress": false,
+    "transferredOwnership": false,
+    "verified": false
+  }
 }

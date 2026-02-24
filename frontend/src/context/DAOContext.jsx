@@ -7,8 +7,8 @@ import TrustForgeDAOABI from "../abis/TrustForgeDAO.json";
 import TrustForgeABI    from "../abis/TrustForge.json";
 
 // ─── Addresses ────────────────────────────────────────────────────────────────
-const DAO_ADDRESS        = "0x230273cAbcD58Ecd62fcC820CA4d60d1bc2403aD";
-const TRUSTFORGE_ADDRESS = "0xeC1aD623cbA36c215635f3e5Cd66225898269cce";
+const DAO_ADDRESS        = "0x42a119135D849CF787B5e1a12AB2EC3c81db7F51";
+const TRUSTFORGE_ADDRESS = "0xf4eD9D7332C8F5809AA66a968216051703cD73B3";
 
 // ─── USDC decimals (must match BlockchainContext) ─────────────────────────────
 const USDC_DECIMALS = 6;

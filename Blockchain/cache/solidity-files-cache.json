@@ -35,8 +35,8 @@
       "artifacts": []
     },
     "C:\\Users\\ACER\\ABCC\\Blockchain\\contracts\\TrustForge.sol": {
-      "lastModificationDate": 1771859824657,
-      "contentHash": "f75dbb41bcf154910cd06ff85fc1c190",
+      "lastModificationDate": 1771905153566,
+      "contentHash": "76c113d08bf7c2076b9f0dd1cf92dbbb",
       "sourceName": "contracts/TrustForge.sol",
       "solcConfig": {
         "version": "0.8.28",
