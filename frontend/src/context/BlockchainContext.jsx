@@ -13,8 +13,8 @@ import TrustForgeDAOABI from "../abis/TrustForgeDAO.json";
 // ─── Contract Addresses ───────────────────────────────────────────────────────
 // Update these after running deploy.js + link.js
 const USDC_ADDRESS       = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"; // Sepolia USDC
-const TRUSTFORGE_ADDRESS = "0xf4eD9D7332C8F5809AA66a968216051703cD73B3";
-const DAO_ADDRESS        = "0x42a119135D849CF787B5e1a12AB2EC3c81db7F51";
+const TRUSTFORGE_ADDRESS = "0x3013e7F2a98F60433BAe85c4E5569A980B0C7Cf7";
+const DAO_ADDRESS        = "0x9a9d28A7007a6d82ba294462Bf22C38C999e856e";
 
 // ─── Token Decimals ───────────────────────────────────────────────────────────
 // USDC has 6 decimals. NEVER use parseEther/formatEther for USDC amounts.

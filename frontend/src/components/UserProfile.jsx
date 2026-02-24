@@ -2,19 +2,9 @@ import { useEffect, useState } from "react";
 import { useBlockchain } from "../context/BlockchainContext";
 import Navbar from "./Navbar";
 import {
-  User,
-  Shield,
-  TrendingUp,
-  History,
-  Wallet,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  ArrowRight,
-  UserCheck,
-  Star,
-  Award,
-  CircleDot
+  User, Shield, TrendingUp, History, Wallet, CheckCircle2,
+  XCircle, Clock, ArrowRight, UserCheck, Star, Award, CircleDot,
+  Activity, Zap, ArrowUpRight, ChevronRight
 } from "lucide-react";
 
 const UserProfile = () => {
@@ -25,26 +15,32 @@ const UserProfile = () => {
     getWalletMaturity,
     getActiveLoan,
     getLoanHistory,
+    computeTrustScore,
+    repayLoan,
     loading,
-    formatAddress,
   } = useBlockchain();
 
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile]   = useState(null);
   const [maturity, setMaturity] = useState(null);
-  const [loan, setLoan] = useState(null);
-  const [history, setHistory] = useState([]);
+  const [loan, setLoan]         = useState(null);
+  const [history, setHistory]   = useState([]);
+  const [liveScore, setLiveScore] = useState(null);
+  const [repaying, setRepaying] = useState(false);
 
   const loadProfile = async () => {
     try {
-      const p = await getUserProfile();
-      const m = await getWalletMaturity();
-      const l = await getActiveLoan();
-      const h = await getLoanHistory();
-
+      const [p, m, l, h, score] = await Promise.all([
+        getUserProfile(),
+        getWalletMaturity(),
+        getActiveLoan(),
+        getLoanHistory(),
+        computeTrustScore(),
+      ]);
       setProfile(p);
       setMaturity(m);
       setLoan(l);
       setHistory(h || []);
+      setLiveScore(score);
     } catch (err) {
       console.error("Profile Load Error:", err);
     }
@@ -54,30 +50,42 @@ const UserProfile = () => {
     if (account) loadProfile();
   }, [account]);
 
+  const handleRepay = async () => {
+    try {
+      setRepaying(true);
+      await repayLoan();
+      await loadProfile();
+    } catch (err) {
+      console.error("Repay error:", err);
+    } finally {
+      setRepaying(false);
+    }
+  };
+
   const getRiskPoolColor = (pool) => {
     switch (Number(pool)) {
-      case 0: return "text-emerald-400";
-      case 1: return "text-amber-400";
-      case 2: return "text-rose-400";
-      default: return "text-gray-400";
+      case 0: return "var(--accent)";
+      case 1: return "#f0b429";
+      case 2: return "#f87171";
+      default: return "var(--td)";
     }
   };
 
   const getRiskPoolName = (pool) => {
     switch (Number(pool)) {
-      case 0: return "Low Risk Pool";
-      case 1: return "Medium Risk Pool";
-      case 2: return "High Risk Pool";
+      case 0: return "Low Risk";
+      case 1: return "Medium Risk";
+      case 2: return "High Risk";
       default: return "Unassigned";
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusStyle = (status) => {
     switch (Number(status)) {
-      case 0: return "text-blue-400 bg-blue-500/10 border-blue-500/20";
-      case 1: return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-      case 2: return "text-rose-400 bg-rose-500/10 border-rose-500/20";
-      default: return "text-gray-400 bg-gray-500/10 border-gray-500/20";
+      case 0: return { color: "#60a5fa", bg: "rgba(96,165,250,0.1)", border: "rgba(96,165,250,0.2)" };
+      case 1: return { color: "var(--accent)", bg: "var(--adim)", border: "rgba(181,212,168,0.2)" };
+      case 2: return { color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.2)" };
+      default: return { color: "var(--td)", bg: "rgba(255,255,255,0.05)", border: "var(--b)" };
     }
   };
 
@@ -90,25 +98,32 @@ const UserProfile = () => {
     }
   };
 
+  const scoreDisplay = liveScore ?? profile?.liveTrustScore ?? 0;
+  const scorePercent = Math.min((scoreDisplay / 1000) * 100, 100);
+
+  const formatAddress = (addr) =>
+    addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
+
+  // ── Not connected ────────────────────────────────────────────────────────────
   if (!account) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4 overflow-hidden font-inter text-white">
-        <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] animate-pulse"></div>
-
-        <div className="relative group max-w-md w-full">
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-          <div className="relative bg-black/40 backdrop-blur-2xl border border-white/10 rounded-3xl p-10 text-center">
-            <div className="w-20 h-20 bg-blue-500/20 rounded-2xl flex items-center justify-center border border-blue-500/30 mx-auto mb-6">
-              <User className="w-10 h-10 text-blue-400" />
+      <div style={styles.pageWrap}>
+        <style>{css}</style>
+        <div className="noise"></div>
+        <Navbar />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "80vh" }}>
+          <div style={styles.connectCard}>
+            <div style={styles.connectIcon}>
+              <User size={32} color="var(--accent)" strokeWidth={1.5} />
             </div>
-            <h1 className="text-3xl font-black mb-4">Identity Portal</h1>
-            <p className="text-gray-400 font-light mb-8">Access your TrustForge credentials and social reputation profile.</p>
-            <button
-              onClick={connectWallet}
-              className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl font-black text-white shadow-lg hover:shadow-blue-500/40 hover:scale-[1.02] transition-all duration-300"
-            >
-              AUTHENTICATE WALLET
+            <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-.03em", marginBottom: 10 }}>
+              Identity Portal
+            </h1>
+            <p style={{ fontSize: 14, color: "var(--td)", lineHeight: 1.75, marginBottom: 28, maxWidth: 320 }}>
+              Access your TrustForge credentials and social reputation profile.
+            </p>
+            <button className="btn-p" style={{ width: "100%", justifyContent: "center", padding: "14px" }} onClick={connectWallet}>
+              Authenticate Wallet <ArrowRight size={15} />
             </button>
           </div>
         </div>
@@ -116,289 +131,453 @@ const UserProfile = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-black relative overflow-hidden font-inter text-white pb-20">
-      {/* Animated Background Grid */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
+  // ── Loading ──────────────────────────────────────────────────────────────────
+  if (loading && !profile) {
+    return (
+      <div style={styles.pageWrap}>
+        <style>{css}</style>
+        <div className="noise"></div>
+        <Navbar />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "80vh", gap: 16 }}>
+          <div style={styles.spinner}></div>
+          <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--accent)", letterSpacing: ".1em" }}>
+            COMPILING PROFILE DATA...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
-      {/* Gradient Orbs */}
-      <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] animate-float"></div>
-      <div className="absolute bottom-0 left-1/4 w-[600px] h-[600px] bg-indigo-600/10 rounded-full blur-[120px] animate-float-delayed"></div>
+  // ── Main Profile ─────────────────────────────────────────────────────────────
+  return (
+    <div style={styles.pageWrap}>
+      <style>{css}</style>
+      <div className="noise"></div>
+
+      {/* bg orbs */}
+      <div style={{ position: "absolute", top: 0, right: "20%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(181,212,168,.06) 0%, transparent 65%)", pointerEvents: "none" }}></div>
+      <div style={{ position: "absolute", bottom: 0, left: "10%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(181,212,168,.04) 0%, transparent 65%)", pointerEvents: "none" }}></div>
 
       <Navbar />
 
-      <main className="relative max-w-7xl mx-auto px-6 pt-12">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 animate-fade-in-down">
+      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "48px 24px 80px" }}>
+
+        {/* ── Page Header ── */}
+        <div className="fu" style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 44 }}>
           <div>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
-                <UserCheck className="w-5 h-5 text-blue-400" />
-              </div>
-              <h1 className="text-4xl md:text-5xl font-black tracking-tight uppercase">User Profile</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <div style={styles.iconBadge}><UserCheck size={16} color="var(--accent)" strokeWidth={1.8} /></div>
+              <span className="tag">IDENTITY PORTAL</span>
             </div>
-            {/* <div className="flex items-center gap-3 text-gray-400 font-mono text-xs tracking-widest px-1">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-              VERIFIED IDENTITY: {formatAddress(account)}
-            </div> */}
+            <h1 style={{ fontSize: 46, fontWeight: 700, letterSpacing: "-.04em", lineHeight: 1 }}>
+              User Profile
+            </h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+              <div className="ld"></div>
+              <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--td)", letterSpacing: ".06em" }}>
+                {formatAddress(account)}
+              </span>
+            </div>
           </div>
 
-          <div className="px-5 py-3 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl flex items-center gap-6">
-            <div className="text-center">
-              <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Reputation</div>
-              <div className="text-xl font-black text-blue-400">{profile?.trustScore || 0}</div>
+          {/* Quick stats pill */}
+          <div style={styles.quickStatsPill}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--td)", letterSpacing: ".1em", marginBottom: 4 }}>TRUST SCORE</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)", fontFamily: "var(--mono)" }}>{scoreDisplay}</div>
             </div>
-            <div className="w-px h-8 bg-white/10"></div>
-            <div className="text-center">
-              <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Status</div>
-              <div className={`text-sm font-black uppercase ${profile ? getRiskPoolColor(profile.assignedPool) : 'text-gray-500'}`}>
-                {profile ? getRiskPoolName(profile.assignedPool).split(' ')[0] : 'Scanning'}
+            <div style={{ width: 1, height: 36, background: "var(--b)" }}></div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--td)", letterSpacing: ".1em", marginBottom: 4 }}>RISK POOL</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: getRiskPoolColor(profile?.assignedPool) }}>
+                {profile ? getRiskPoolName(profile.assignedPool) : "—"}
+              </div>
+            </div>
+            <div style={{ width: 1, height: 36, background: "var(--b)" }}></div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--td)", letterSpacing: ".1em", marginBottom: 4 }}>USERNAME</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>@{profile?.username || "—"}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Row 1: Identity + Score Card + Maturity ── */}
+        <div className="fu d1" style={{ display: "grid", gridTemplateColumns: "1fr 340px 260px", gap: 16, marginBottom: 16 }}>
+
+          {/* Identity Performance */}
+          <div style={styles.card}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
+              <Star size={13} color="var(--accent)" />
+              <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)", letterSpacing: ".12em" }}>IDENTITY PERFORMANCE</span>
+            </div>
+
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)", letterSpacing: ".08em", marginBottom: 6 }}>NETWORK HANDLE</div>
+              <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-.03em" }}>@{profile?.username || "Incognito"}</div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 28 }}>
+              <div style={styles.statBox}>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--td)", letterSpacing: ".08em", marginBottom: 6 }}>MAX LIMIT</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)", fontFamily: "var(--mono)" }}>
+                  {profile?.maxBorrowingLimit || "0"}
+                  <span style={{ fontSize: 11, color: "var(--td)", marginLeft: 4 }}>USDC</span>
+                </div>
+              </div>
+              <div style={styles.statBox}>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--td)", letterSpacing: ".08em", marginBottom: 6 }}>VOUCH BONUS</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "#60a5fa", fontFamily: "var(--mono)" }}>
+                  +{profile?.vouchBonus || 0}
+                  <span style={{ fontSize: 11, color: "var(--td)", marginLeft: 4 }}>pts</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.metricsRow}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12, color: "var(--td)" }}>Total Loans</span>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 600 }}>{profile?.totalLoansTaken ?? "—"}</span>
+              </div>
+              <div style={{ height: 1, background: "var(--b)" }}></div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <CheckCircle2 size={12} color="var(--accent)" />
+                  <span style={{ fontSize: 12, color: "var(--td)" }}>Successful Repayments</span>
+                </div>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 600, color: "var(--accent)" }}>{profile?.successfulRepayments ?? "—"}</span>
+              </div>
+              <div style={{ height: 1, background: "var(--b)" }}></div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <XCircle size={12} color="#f87171" />
+                  <span style={{ fontSize: 12, color: "var(--td)" }}>Protocol Violations</span>
+                </div>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 600, color: "#f87171" }}>{profile?.defaults ?? "—"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Trust Score Card */}
+          <div style={{ ...styles.card, background: "var(--grey)", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,rgba(181,212,168,.5),transparent)", animation: "scan 5s linear infinite", pointerEvents: "none" }}></div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)", letterSpacing: ".1em", marginBottom: 14 }}>LIVE TRUST SCORE</div>
+
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 52, fontWeight: 700, letterSpacing: "-.04em", lineHeight: 1, color: "var(--accent)" }}>{scoreDisplay}</span>
+              <span style={{ fontSize: 18, color: "var(--td)" }}>/1000</span>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ height: 6, background: "var(--bg3)", borderRadius: 99, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${scorePercent}%`, background: "linear-gradient(90deg, var(--accent2), var(--accent))", borderRadius: 99, boxShadow: "0 0 10px var(--aglow)", transition: "width 1s ease" }}></div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)" }}>0</span>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--accent)" }}>{scorePercent.toFixed(1)}%</span>
+              </div>
+            </div>
+
+            {/* Score breakdown mini bars */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                { label: "Payment History", max: 350, color: "var(--accent)" },
+                { label: "Utilization", max: 300, color: "#60a5fa" },
+                { label: "Wallet Age", max: 150, color: "#a78bfa" },
+                { label: "Credit Mix", max: 100, color: "#f0b429" },
+              ].map((item) => (
+                <div key={item.label}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, color: "var(--td)" }}>{item.label}</span>
+                    <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)" }}>{item.max}pts</span>
+                  </div>
+                  <div style={{ height: 3, background: "var(--bg3)", borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: "70%", background: item.color, borderRadius: 99, opacity: 0.6 }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 7 }}>
+              <div className="ld" style={{ width: 6, height: 6 }}></div>
+              <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--accent)", letterSpacing: ".06em" }}>COMPUTED LIVE</span>
+            </div>
+          </div>
+
+          {/* Wallet Maturity */}
+          <div style={{ ...styles.card, background: "linear-gradient(135deg, #1a1a2e 0%, var(--grey) 100%)", border: "1px solid rgba(167,139,250,0.2)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#a78bfa", letterSpacing: ".1em", marginBottom: 18 }}>WALLET MATURITY</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                <div style={{ width: 60, height: 60, borderRadius: 14, background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 700, color: "#a78bfa", fontFamily: "var(--mono)" }}>
+                  {maturity?.maturityLevel ?? 0}
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 2 }}>Tier {maturity?.maturityLevel ?? 0} Veteran</div>
+                  <div style={{ fontSize: 11, color: "var(--td)" }}>
+                    Age: {maturity?.age ? Math.floor(maturity.age / 86400) : 0}d
+                  </div>
+                </div>
+              </div>
+              <p style={{ fontSize: 12, color: "var(--td)", lineHeight: 1.65 }}>
+                Longevity grants exclusive benefits and higher borrowing multipliers.
+              </p>
+            </div>
+
+            <div style={{ marginTop: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--td)" }}>Multiplier Benefit</span>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "#a78bfa" }}>+{maturity?.maturityMultiplier ?? 0}%</span>
+              </div>
+              <div style={{ height: 4, background: "var(--bg3)", borderRadius: 99, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${Math.min((maturity?.maturityLevel ?? 0) * 25, 100)}%`, background: "linear-gradient(90deg, #7c3aed, #a78bfa)", borderRadius: 99, transition: "width 1s ease" }}></div>
               </div>
             </div>
           </div>
         </div>
 
-        {loading && (
-          <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-            <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-6"></div>
-            <div className="text-blue-400 font-black uppercase tracking-widest">Compiling Profile Data...</div>
-          </div>
-        )}
-
-        {!loading && (
-          <div className="space-y-12 animate-fade-in-up">
-            {/* TOP CARDS: Profile & Maturity */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Identity Details Card */}
-              <div className="lg:col-span-2 relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-                <div className="relative bg-white/[0.03] backdrop-blur-3xl border border-white/10 rounded-3xl p-8 md:p-10">
-                  <h3 className="text-xs text-gray-500 font-black uppercase tracking-[0.3em] mb-10 flex items-center gap-2">
-                    <Star className="w-4 h-4 text-blue-400" />
-                    Identity Performance
-                  </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                    <div className="space-y-8">
-                      <div>
-                        <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Network Handle</div>
-                        <div className="text-3xl font-black text-white">@{profile?.username || "Incognito"}</div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-6">
-                        <div>
-                          <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Max Limit</div>
-                          <div className="text-2xl font-black text-blue-400">{profile?.maxBorrowingLimit} <span className="text-xs text-gray-500 ml-1">TFX</span></div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Trust Ranking</div>
-                          <div className={`text-2xl font-black ${getRiskPoolColor(profile?.assignedPool)}`}>{profile?.trustScore}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 space-y-6">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">Total Loans Conducted</span>
-                        <span className="text-lg font-black">{profile?.totalLoansTaken}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-emerald-400/80">Successful Repayments</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-black text-emerald-400">{profile?.successfulRepayments}</span>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-rose-400/80">Protocol Violations</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-black text-rose-400">{profile?.defaults}</span>
-                          <XCircle className="w-4 h-4 text-rose-500" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+        {/* ── Active Loan ── */}
+        {loan && loan.principal !== "0.0" && (
+          <div className="fu d2" style={styles.activeLoanCard}>
+            <div style={{ position: "absolute", left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,rgba(181,212,168,.4),transparent)", animation: "scan 4s linear infinite", pointerEvents: "none" }}></div>
+            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+              <div style={{ width: 56, height: 56, background: "rgba(181,212,168,.1)", border: "1px solid rgba(181,212,168,.2)", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <TrendingUp size={24} color="var(--accent)" strokeWidth={1.5} />
               </div>
-
-              {/* Wallet Maturity Card */}
-              <div className="relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-b from-indigo-600 to-purple-600 rounded-3xl blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
-                <div className="relative h-full bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-3xl border border-white/10 rounded-3xl p-8 flex flex-col justify-between overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-[40px] -translate-y-1/2 translate-x-1/2"></div>
-
-                  <div>
-                    <h3 className="text-xs text-indigo-400 font-black uppercase tracking-[0.3em] mb-8">Wallet Maturity</h3>
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-16 h-16 bg-indigo-500/20 rounded-2xl flex items-center justify-center border border-indigo-500/30 text-3xl font-black">
-                        {maturity?.maturityLevel || 0}
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Maturity Class</div>
-                        <div className="text-xl font-black text-white">Tier {maturity?.maturityLevel} Veteran</div>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-400 font-light leading-relaxed">
-                      Your longevity in the protocol grants you exclusive benefits and higher borrowing multipliers.
-                    </p>
-                  </div>
-
-                  <div className="mt-8">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Multiplier Benefit</span>
-                      <span className="text-sm font-black text-indigo-400">+{maturity?.maturityMultiplier}% Impact</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-1000"
-                        style={{ width: `${Math.min((maturity?.maturityLevel || 0) * 10, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-.02em" }}>Live Credit Operation</h2>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 9, letterSpacing: ".1em", color: "var(--accent)", background: "var(--adim)", border: "1px solid rgba(181,212,168,.2)", padding: "3px 8px", borderRadius: 4 }}>
+                    ACTIVE
+                  </span>
+                  {loan.isOverdue && (
+                    <span style={{ fontFamily: "var(--mono)", fontSize: 9, letterSpacing: ".1em", color: "#f87171", background: "rgba(248,113,113,.1)", border: "1px solid rgba(248,113,113,.2)", padding: "3px 8px", borderRadius: 4 }}>
+                      OVERDUE
+                    </span>
+                  )}
                 </div>
-              </div>
-            </div>
-
-            {/* ACTIVE LOAN SECTION */}
-            {loan && loan.principal !== "0.0" && (
-              <div className="relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-600/20 to-blue-600/20 rounded-3xl blur opacity-30"></div>
-                <div className="relative bg-black/60 backdrop-blur-3xl border border-emerald-500/20 rounded-3xl p-8 md:p-12">
-                  <div className="flex flex-col md:flex-row items-center gap-10">
-                    <div className="w-24 h-24 bg-emerald-500/10 rounded-3xl flex items-center justify-center border border-emerald-500/20 shrink-0">
-                      <TrendingUp className="w-12 h-12 text-emerald-400" />
-                    </div>
-                    <div className="flex-1 text-center md:text-left">
-                      <div className="flex items-center justify-center md:justify-start gap-4 mb-4">
-                        <h2 className="text-3xl font-black">Live Credit Operation</h2>
-                        <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-500/30 animate-pulse">
-                          Mission Critical
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                        <div>
-                          <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Principal</div>
-                          <div className="text-xl font-black">{loan.principal} TFX</div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Interest</div>
-                          <div className="text-xl font-black text-emerald-400">{loan.interestAmount} TFX</div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Total Due</div>
-                          <div className="text-xl font-black text-white">{loan.totalRepayment} TFX</div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Deadline</div>
-                          <div className="text-sm font-black text-rose-400 font-mono">
-                            {new Date(Number(loan.dueDate) * 1000).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <button className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-black text-white shadow-lg shadow-emerald-900/40 transition-all flex items-center gap-3">
-                        REPAY NOW <ArrowRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* LOAN HISTORY SECTION */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-4 px-2">
-                <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center border border-white/10">
-                  <History className="w-4 h-4 text-gray-400" />
-                </div>
-                <h2 className="text-2xl font-black tracking-tight uppercase">Operational History</h2>
-                <div className="h-px flex-1 bg-white/10"></div>
-              </div>
-
-              {history.length === 0 ? (
-                <div className="text-center py-20 bg-white/[0.02] rounded-3xl border border-white/5 border-dashed">
-                  <CircleDot className="w-16 h-16 text-gray-700 mx-auto mb-6 opacity-50" />
-                  <h3 className="text-xl font-bold text-gray-400 mb-2">Clean Slate Detected</h3>
-                  <p className="text-gray-500 font-light">No historical loan data found for this identity in our network.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {history.map((item, index) => (
-                    <div key={index} className="group/card relative bg-white/5 border border-white/10 rounded-3xl p-6 hover:bg-white/[0.08] transition-all duration-300">
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-black/40 rounded-xl flex items-center justify-center border border-white/5 font-black text-xs">
-                            #{history.length - index}
-                          </div>
-                          <div>
-                            <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Operation</div>
-                            <div className="text-base font-black tracking-tight">{item.principal} TFX</div>
-                          </div>
-                        </div>
-                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${getStatusColor(item.status)}`}>
-                          {getStatusName(item.status)}
-                        </span>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between text-[10px] text-gray-500">
-                          <span className="flex items-center gap-2">
-                            <Clock className="w-3 h-3" />
-                            Initialized
-                          </span>
-                          <span className="font-mono">{new Date(Number(item.startTime) * 1000).toLocaleDateString()}</span>
-                        </div>
-                        <div className="h-px bg-white/5"></div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Yield Accuracy</span>
-                          <span className="text-sm font-black text-emerald-400">100% Verified</span>
-                        </div>
-                      </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 }}>
+                  {[
+                    { label: "Principal", value: `${loan.principal} USDC`, color: "var(--t)" },
+                    { label: "Interest", value: `${loan.interestAmount} USDC`, color: "var(--accent)" },
+                    { label: "Total Due", value: `${loan.totalRepayment} USDC`, color: "var(--t)" },
+                    { label: "Deadline", value: new Date(Number(loan.dueDate) * 1000).toLocaleDateString(), color: loan.isOverdue ? "#f87171" : "#f0b429" },
+                  ].map(item => (
+                    <div key={item.label}>
+                      <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--td)", letterSpacing: ".08em", marginBottom: 4 }}>{item.label.toUpperCase()}</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: item.color, fontFamily: "var(--mono)" }}>{item.value}</div>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
+              <button
+                className="btn-p"
+                onClick={handleRepay}
+                disabled={repaying || loading}
+                style={{ flexShrink: 0, opacity: repaying ? 0.7 : 1 }}
+              >
+                {repaying ? "Processing..." : "Repay Now"} <ArrowRight size={14} />
+              </button>
             </div>
           </div>
         )}
+
+        {/* ── Loan History ── */}
+        <div className="fu d3">
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+            <div style={styles.iconBadge}><History size={14} color="var(--td)" strokeWidth={1.8} /></div>
+            <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-.03em" }}>Operational History</h2>
+            <div style={{ flex: 1, height: 1, background: "var(--b)" }}></div>
+            {history.length > 0 && (
+              <span className="tag">{history.length} RECORDS</span>
+            )}
+          </div>
+
+          {history.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "60px 24px", background: "var(--grey)", border: "1px dashed var(--b2)", borderRadius: 16 }}>
+              <CircleDot size={40} color="var(--td)" style={{ margin: "0 auto 16px", opacity: 0.3 }} />
+              <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--tm)", marginBottom: 8 }}>Clean Slate Detected</h3>
+              <p style={{ fontSize: 13, color: "var(--td)" }}>No historical loan data found for this identity.</p>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+              {history.map((item, index) => {
+                const statusStyle = getStatusStyle(item.status);
+                return (
+                  <div key={index} className="fc" style={{ padding: 22 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--bg3)", border: "1px solid var(--b)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: "var(--td)" }}>
+                          #{history.length - index}
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--td)", letterSpacing: ".08em", marginBottom: 2 }}>PRINCIPAL</div>
+                          <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "var(--mono)" }}>{item.principal} USDC</div>
+                        </div>
+                      </div>
+                      <span style={{ fontFamily: "var(--mono)", fontSize: 9, letterSpacing: ".08em", padding: "3px 8px", borderRadius: 5, border: `1px solid ${statusStyle.border}`, background: statusStyle.bg, color: statusStyle.color }}>
+                        {getStatusName(item.status)}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <Clock size={11} color="var(--td)" />
+                          <span style={{ fontSize: 11, color: "var(--td)" }}>Started</span>
+                        </div>
+                        <span style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{new Date(Number(item.startTime) * 1000).toLocaleDateString()}</span>
+                      </div>
+                      <div style={{ height: 1, background: "var(--b)" }}></div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: "var(--td)" }}>Total Repayment</span>
+                        <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--accent)" }}>{item.totalRepayment} USDC</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: "var(--td)" }}>Risk Pool</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: getRiskPoolColor(item.riskPool) }}>
+                          {getRiskPoolName(item.riskPool)}
+                        </span>
+                      </div>
+                      <div style={{ height: 1, background: "var(--b)" }}></div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: "var(--td)" }}>Interest</span>
+                        <span style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{item.interestAmount} USDC</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </main>
-
-      {/* Global CSS for Grid and Animations */}
-      <style jsx global>{`
-        .bg-grid-pattern {
-          background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
-          background-size: 30px 30px;
-        }
-
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) scale(1); }
-          50% { transform: translateY(-20px) scale(1.05); }
-        }
-
-        @keyframes float-delayed {
-          0%, 100% { transform: translateY(0px) scale(1.05); }
-          50% { transform: translateY(-20px) scale(1); }
-        }
-
-        .animate-float { animation: float 10s ease-in-out infinite; }
-        .animate-float-delayed { animation: float-delayed 12s ease-in-out infinite; }
-
-        .animate-fade-in-down { animation: fadeInDown 0.8s ease-out forwards; }
-        .animate-fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
-
-        @keyframes fadeInDown {
-          from { opacity: 0; transform: translateY(-20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 };
+
+// ── Styles Object ─────────────────────────────────────────────────────────────
+const styles = {
+  pageWrap: {
+    fontFamily: "'DM Sans','Helvetica Neue',sans-serif",
+    background: "#111",
+    minHeight: "100vh",
+    color: "#f0ede8",
+    overflowX: "hidden",
+    position: "relative",
+  },
+  card: {
+    background: "var(--bg2)",
+    border: "1px solid var(--b)",
+    borderRadius: 16,
+    padding: "24px",
+    transition: "border-color .3s",
+  },
+  statBox: {
+    background: "var(--bg3)",
+    borderRadius: 12,
+    padding: "14px 16px",
+  },
+  metricsRow: {
+    background: "var(--bg3)",
+    borderRadius: 12,
+    padding: "14px 16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  iconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    background: "rgba(255,255,255,.04)",
+    border: "1px solid var(--b)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  quickStatsPill: {
+    display: "flex",
+    alignItems: "center",
+    gap: 20,
+    background: "var(--grey)",
+    border: "1px solid var(--b)",
+    borderRadius: 14,
+    padding: "14px 22px",
+  },
+  connectCard: {
+    background: "var(--grey)",
+    border: "1px solid var(--b)",
+    borderRadius: 20,
+    padding: "48px",
+    textAlign: "center",
+    maxWidth: 400,
+    width: "100%",
+  },
+  connectIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    background: "var(--adim)",
+    border: "1px solid rgba(181,212,168,.2)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0 auto 20px",
+  },
+  activeLoanCard: {
+    background: "var(--grey)",
+    border: "1px solid rgba(181,212,168,.2)",
+    borderRadius: 16,
+    padding: "24px 28px",
+    marginBottom: 16,
+    position: "relative",
+    overflow: "hidden",
+  },
+  spinner: {
+    width: 40,
+    height: 40,
+    border: "3px solid rgba(181,212,168,.15)",
+    borderTop: "3px solid var(--accent)",
+    borderRadius: "50%",
+    animation: "spin 0.8s linear infinite",
+  },
+};
+
+// ── Shared CSS (mirroring homepage) ──────────────────────────────────────────
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#111;--bg2:#1a1a1a;--bg3:#222;
+    --grey:#1d1d1d;--grey2:#252525;--grey3:#2c2c2c;
+    --accent:#b5d4a8;--accent2:#8fc47f;
+    --adim:rgba(181,212,168,0.1);--aglow:rgba(181,212,168,0.22);
+    --b:rgba(255,255,255,0.06);--b2:rgba(255,255,255,0.1);
+    --t:#f0ede8;--tm:#999;--td:#555;
+    --mono:'DM Mono',monospace;
+  }
+  body{font-family:'DM Sans',sans-serif}
+  .btn-p{background:var(--accent);color:#0a150a;border:none;padding:11px 22px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .25s;font-family:'DM Sans',sans-serif}
+  .btn-p:hover{background:var(--accent2);transform:translateY(-2px);box-shadow:0 8px 28px var(--aglow)}
+  .btn-p:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+  .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--accent);background:var(--adim);border:1px solid rgba(181,212,168,.18);padding:3px 8px;border-radius:4px;display:inline-block}
+  .fc{background:var(--grey);border:1px solid var(--b);border-radius:16px;transition:all .3s;position:relative;overflow:hidden;cursor:pointer}
+  .fc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:opacity .4s}
+  .fc:hover::before{opacity:1}
+  .fc:hover{border-color:rgba(181,212,168,.2);transform:translateY(-3px);box-shadow:0 16px 48px rgba(0,0,0,.3)}
+  .ld{width:7px;height:7px;background:var(--accent);border-radius:50%;animation:pdot 2s infinite;position:relative;flex-shrink:0}
+  .ld::after{content:'';position:absolute;inset:-3px;border:1px solid var(--accent);border-radius:50%;animation:pring 2s infinite}
+  .noise{position:fixed;inset:0;pointer-events:none;z-index:999;opacity:.018;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:150px}
+  .fu{animation:fadeInUp .7s ease forwards}
+  .d1{animation-delay:.1s;opacity:0}
+  .d2{animation-delay:.2s;opacity:0}
+  .d3{animation-delay:.3s;opacity:0}
+  @keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+  @keyframes pring{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.4);opacity:0}}
+  @keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(2000%);opacity:0}}
+  @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+`;
 
 export default UserProfile;
