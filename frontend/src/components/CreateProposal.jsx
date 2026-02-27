@@ -42,9 +42,9 @@ const CATEGORIES = [
 ];
 
 const POOL_META = {
-  UPDATE_LOW_RISK_RATES:  { label:"Low Risk Pool",    hint:"Conservative: 300–800 bps",   color:"#b5d4a8" },
-  UPDATE_MED_RISK_RATES:  { label:"Medium Risk Pool", hint:"Typical: 700–1500 bps",        color:"#e8c96d" },
-  UPDATE_HIGH_RISK_RATES: { label:"High Risk Pool",   hint:"Aggressive: 1200–2500 bps",    color:"#e87070" },
+  UPDATE_LOW_RISK_RATES:  { label:"Low Risk Pool",    hint:"Conservative: 300–800 bps",  color:"#b5d4a8" },
+  UPDATE_MED_RISK_RATES:  { label:"Medium Risk Pool", hint:"Typical: 700–1500 bps",       color:"#e8c96d" },
+  UPDATE_HIGH_RISK_RATES: { label:"High Risk Pool",   hint:"Aggressive: 1200–2500 bps",   color:"#e87070" },
 };
 
 // ── Small input widget ─────────────────────────────────────────────────────
@@ -97,15 +97,14 @@ const CreateProposal = ({ onCreated }) => {
   const { createProposalFromTemplate, getVotingPower, loading } = useDAO();
   const { account } = useBlockchain();
 
-  const [selectedCat,  setCat]      = useState(null);
-  const [selectedTpl,  setTpl]      = useState(null);
-  const [fields,       setFields]   = useState({});
-  const [description,  setDesc]     = useState("");
-  const [error,        setError]    = useState("");
-  const [success,      setSuccess]  = useState(false);
+  const [selectedCat, setCat]    = useState(null);
+  const [selectedTpl, setTpl]    = useState(null);
+  const [fields,      setFields] = useState({});
+  const [description, setDesc]   = useState("");
+  const [error,       setError]  = useState("");
+  const [success,     setSuccess] = useState(false);
 
   const template = selectedTpl ? PROPOSAL_TEMPLATES[selectedTpl] : null;
-  const catMeta  = CATEGORIES.find(c => c.id === selectedCat?.id);
 
   const handleCatSelect = (cat) => {
     setCat(cat); setTpl(null); setFields({}); setError("");
@@ -126,7 +125,7 @@ const CreateProposal = ({ onCreated }) => {
   };
 
   const validate = () => {
-    if (!selectedTpl)       return "Select a proposal type";
+    if (!selectedTpl)        return "Select a proposal type";
     if (!description.trim()) return "Description is required";
     if (template) {
       for (const f of template.argFields) {
@@ -155,6 +154,7 @@ const CreateProposal = ({ onCreated }) => {
     const err = validate();
     if (err) { setError(err); return; }
 
+    // Only USDC check — trust score gate removed
     const power = await getVotingPower(account);
     if (Number(power) < 100) {
       setError("You need at least 100 USDC to create a proposal");
@@ -196,6 +196,7 @@ const CreateProposal = ({ onCreated }) => {
             <h2 style={{ fontSize:20, fontWeight:700, letterSpacing:"-.03em" }}>Create Proposal</h2>
           </div>
         </div>
+        {/* ── Updated requirement note: trust score removed ── */}
         <div style={st.reqNote}>
           <Info size={11} color="var(--td)" />
           <span style={{ fontFamily:"var(--mono)", fontSize:9, color:"var(--td)" }}>100 USDC · 6H VOTE · 24H LOCK</span>
@@ -259,7 +260,6 @@ const CreateProposal = ({ onCreated }) => {
           <div style={st.step} className="fade-in">
             <div style={st.stepLabel}><span style={st.stepNum}>3</span>Set Parameters</div>
 
-            {/* Rate presets */}
             {selectedTpl?.includes("RISK_RATES") && (
               <div style={{ padding:"14px", background:"rgba(181,212,168,.04)", border:"1px solid rgba(181,212,168,.15)", borderRadius:10, marginBottom:14 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10 }}>
@@ -283,14 +283,12 @@ const CreateProposal = ({ onCreated }) => {
               </div>
             )}
 
-            {/* Fee guide */}
             {selectedTpl === "SET_PLATFORM_FEE" && (
               <div style={{ padding:"14px", background:"rgba(196,168,212,.05)", border:"1px solid rgba(196,168,212,.15)", borderRadius:10, marginBottom:14, fontFamily:"var(--mono)", fontSize:10, color:"var(--td)", lineHeight:1.7 }}>
                 Current default: 200 bps (2%). Maximum: 1000 bps (10%). Elite users get 50 bps discount.
               </div>
             )}
 
-            {/* Borrowing limits guide */}
             {selectedTpl === "UPDATE_BORROWING_LIMITS" && (
               <div style={{ padding:"14px", background:"rgba(168,196,212,.05)", border:"1px solid rgba(168,196,212,.15)", borderRadius:10, marginBottom:14, fontFamily:"var(--mono)", fontSize:10, color:"var(--td)", lineHeight:1.7 }}>
                 Enter values in USDC. Must be ascending: Low &lt; Med &lt; High.
@@ -355,8 +353,9 @@ const CreateProposal = ({ onCreated }) => {
           )}
         </button>
 
+        {/* ── Updated footer note: trust score requirement removed ── */}
         <div style={{ textAlign:"center", fontFamily:"var(--mono)", fontSize:9, color:"var(--td)", marginTop:8 }}>
-          REQUIRES 100 USDC + TRUST ≥ 500 · 6H VOTING WINDOW · YES VOTES &gt; NO VOTES
+          REQUIRES 100 USDC · 6H VOTING WINDOW · YES VOTES &gt; NO VOTES
         </div>
       </div>
 

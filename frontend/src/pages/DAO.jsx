@@ -21,7 +21,7 @@ const DAO = () => {
 
   const [proposals, setProposals]       = useState([]);
   const [votingPower, setVotingPower]   = useState("0");
-  const [propEligibility, setPropElig]  = useState(null); // full object from canCreateProposal
+  const [propEligibility, setPropElig]  = useState(null);
   const [showCreate, setShowCreate]     = useState(false);
   const [filter, setFilter]             = useState("All");
   const [refreshing, setRefreshing]     = useState(false);
@@ -46,7 +46,6 @@ const DAO = () => {
 
   useEffect(() => { loadDAO(); }, [account, dao]);
 
-  // ── Derived stats ──────────────────────────────────────────────────────────
   const activeCount   = proposals.filter(p => getProposalStatus(p) === "ACTIVE").length;
   const passedCount   = proposals.filter(p => ["QUEUED","EXECUTABLE","EXECUTED"].includes(getProposalStatus(p))).length;
   const executedCount = proposals.filter(p => p.executed).length;
@@ -122,6 +121,7 @@ const DAO = () => {
               </div>
             </div>
 
+            {/* ── CTA: only USDC gate, no trust score badge ── */}
             {canPropose ? (
               <button className="btn-p" style={{ padding:"14px 28px", fontSize:14 }} onClick={() => setShowCreate(true)}>
                 <Plus size={15} /> Create Proposal
@@ -130,7 +130,8 @@ const DAO = () => {
               <div style={st.ineligBadge}>
                 <ShieldCheck size={14} color="var(--td)" />
                 <span style={{ fontFamily:"var(--mono)", fontSize:11, color:"var(--td)" }}>
-                  {propEligibility?.reason || "Need 100 USDC + Trust ≥ 500 to propose"}
+                  {/* Only show USDC or cooldown reason — trust score removed */}
+                  {propEligibility?.reason || "Need 100 USDC to create a proposal"}
                 </span>
               </div>
             )}
@@ -164,8 +165,7 @@ const DAO = () => {
               key={f}
               onClick={() => setFilter(f)}
               style={{
-                padding:"6px 14px",
-                borderRadius:99,
+                padding:"6px 14px", borderRadius:99,
                 border:`1px solid ${filter===f ? "rgba(181,212,168,.4)" : "rgba(255,255,255,.08)"}`,
                 background: filter===f ? "rgba(181,212,168,.1)" : "transparent",
                 color: filter===f ? "var(--accent)" : "var(--td)",

@@ -5,32 +5,28 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
- * @title TrustForgeDAO v3 — Deployment Ready
+ * @title TrustForgeDAO v3.1 — Trust Score Gate Removed
  * @dev Governance contract for TrustForge
  *
- * CHANGELOG v2 → v3 (Deployment & Linking Fixes):
+ * CHANGELOG v3 → v3.1:
  * ─────────────────────────────────────────────────────────────────────────────
- * [DEPLOY-01] quorumThreshold moved to constructor argument — set it correctly
- *             at deploy time based on your expected USDC liquidity. Default
- *             of 1000 USDC was potentially unreachable.
+ * [GATE-01] Removed trust score (≥500) requirement from createProposal().
+ *           The optional trustForge.isEligibleForDAOProposal() check has been
+ *           deleted entirely. Only the 100 USDC balance gate remains.
  *
- * [DEPLOY-02] verifyLink() view — confirms DAO ↔ TrustForge are correctly
- *             wired and that the DAO actually owns TrustForge.
+ * [GATE-02] Removed trust score (≥500) requirement from proposeTrustForgeCall().
+ *           The mandatory trustForge.isEligibleForDAOProposal() check has been
+ *           deleted entirely. Only the 100 USDC balance gate remains.
  *
- * [DEPLOY-03] proposeTrustForgeCall() helper — makes it easy to create proposals
- *             that call TrustForge admin functions without needing to manually
- *             ABI-encode calldata on the frontend. Just pass function name + args.
- *
- * [DEPLOY-04] getProposalState() — returns a human-readable status string
- *             (PENDING, ACTIVE, DEFEATED, QUEUED, EXECUTABLE, EXECUTED, CANCELLED)
- *             so frontends and users can clearly see what stage a proposal is in.
- *
- * [DEPLOY-05] Execution failure now returns the revert reason via
- *             bubbled-up error bytes, making debugging proposals much easier.
+ * ⚠️  TrustForge.sol does NOT need to be redeployed for this change.
+ *     No function names, events, or storage layout have changed.
+ *     Existing context files / ABIs for TrustForge remain 100% compatible.
+ *     Only TrustForgeDAO needs to be redeployed.
+ * ─────────────────────────────────────────────────────────────────────────────
  *
  * ─── Full Proposal Lifecycle ─────────────────────────────────────────────────
  *   1. createProposal(target, value, data, description)
- *        requires: USDC >= 100, trust >= 500, 24h since last proposal
+ *        requires: USDC >= 100, 24h since last proposal
  *   2. vote(proposalId, true/false)
  *        during: endTime window (6 hours)
  *        power:  USDC balance at vote time
@@ -41,11 +37,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * ─── Deployment Order ────────────────────────────────────────────────────────
- *   1. Deploy TrustForge(usdcToken, adminWallet)
- *   2. Deploy TrustForgeDAO(usdcToken, initialQuorum)
- *   3. trustForge.setDAO(daoAddress)
+ *   1. Deploy TrustForge(usdcToken, adminWallet)         ← already deployed, skip
+ *   2. Deploy TrustForgeDAO(usdcToken, initialQuorum)    ← redeploy this file
+ *   3. trustForge.setDAO(newDaoAddress)                  ← update TrustForge reference
  *   4. dao.setTrustForgeAddress(trustForgeAddress)
- *   5. trustForge.transferOwnershipToDAO(daoAddress, yourWallet)
+ *   5. trustForge.transferOwnershipToDAO(newDaoAddress, yourWallet)
  *   6. dao.verifyLink()  — must return all true before going live
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -130,7 +126,7 @@ contract TrustForgeDAO is Ownable {
     // ============ Constructor ============
 
     /**
-     * @param _usdcToken      Address of the USDC token
+     * @param _usdcToken       Address of the USDC token
      * @param _quorumThreshold Minimum yes-vote USDC (6 dec) for a proposal to pass.
      *                         Set this to something realistic — e.g. 500 * 1e6 for 500 USDC.
      *                         Too high = nothing ever passes. Too low = easy to pass bad proposals.
@@ -193,6 +189,7 @@ contract TrustForgeDAO is Ownable {
 
     /**
      * @dev Create a raw governance proposal.
+     *      [GATE-01] Trust score check removed — only 100 USDC balance required.
      *      For calling TrustForge admin functions, use proposeTrustForgeCall() instead.
      */
     function createProposal(
@@ -206,12 +203,8 @@ contract TrustForgeDAO is Ownable {
             usdcToken.balanceOf(msg.sender) >= MIN_PROPOSAL_TOKENS,
             "Need >= 100 USDC to propose"
         );
-        if (address(trustForge) != address(0)) {
-            require(
-                trustForge.isEligibleForDAOProposal(msg.sender),
-                "Trust score < 500 - not eligible to propose"
-            );
-        }
+        // [GATE-01] Trust score gate (isEligibleForDAOProposal) intentionally removed.
+        //           Any address holding >= 100 USDC may create a proposal.
         require(
             block.timestamp >= lastProposalTime[msg.sender] + PROPOSAL_COOLDOWN,
             "Must wait 24 hours between proposals"
@@ -224,6 +217,8 @@ contract TrustForgeDAO is Ownable {
      * @dev [DEPLOY-03] Convenience function — propose a call to a TrustForge admin function.
      *      Automatically sets target = trustForge and value = 0.
      *      Pass the ABI-encoded function call as `callData`.
+     *
+     *      [GATE-02] Trust score check removed — only 100 USDC balance required.
      *
      *      Example (Ethers.js on frontend):
      *        const callData = trustForge.interface.encodeFunctionData("setPlatformFee", [150]);
@@ -242,10 +237,8 @@ contract TrustForgeDAO is Ownable {
             usdcToken.balanceOf(msg.sender) >= MIN_PROPOSAL_TOKENS,
             "Need >= 100 USDC to propose"
         );
-        require(
-    trustForge.isEligibleForDAOProposal(msg.sender),
-    "Trust score < 500 - not eligible to propose"
-);
+        // [GATE-02] Trust score gate (isEligibleForDAOProposal) intentionally removed.
+        //           Any address holding >= 100 USDC may propose a TrustForge call.
         require(
             block.timestamp >= lastProposalTime[msg.sender] + PROPOSAL_COOLDOWN,
             "Must wait 24 hours between proposals"
@@ -330,7 +323,6 @@ contract TrustForgeDAO is Ownable {
         (bool success, bytes memory returnData) = proposal.target.call{value: proposal.value}(proposal.data);
 
         if (!success) {
-            // Bubble up the revert string if there is one
             if (returnData.length > 0) {
                 assembly {
                     revert(add(32, returnData), mload(returnData))
@@ -352,11 +344,11 @@ contract TrustForgeDAO is Ownable {
     function getProposalState(uint256 proposalId) external view returns (ProposalState) {
         Proposal storage p = proposals[proposalId];
 
-        if (p.cancelled)                                            return ProposalState.CANCELLED;
-        if (p.executed)                                             return ProposalState.EXECUTED;
-        if (block.timestamp < p.endTime)                            return ProposalState.ACTIVE;
+        if (p.cancelled)                                              return ProposalState.CANCELLED;
+        if (p.executed)                                               return ProposalState.EXECUTED;
+        if (block.timestamp < p.endTime)                              return ProposalState.ACTIVE;
         if (p.yesVotes <= p.noVotes || p.yesVotes < quorumThreshold) return ProposalState.DEFEATED;
-        if (block.timestamp < p.executableAfter)                    return ProposalState.QUEUED;
+        if (block.timestamp < p.executableAfter)                      return ProposalState.QUEUED;
         return ProposalState.EXECUTABLE;
     }
 

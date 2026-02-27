@@ -266,8 +266,8 @@
       ]
     },
     "C:\\Users\\ACER\\ABCC\\Blockchain\\contracts\\TrustForgeDAO.sol": {
-      "lastModificationDate": 1771861991934,
-      "contentHash": "30c83b48685dfc92320c0da98893bc59",
+      "lastModificationDate": 1772189639998,
+      "contentHash": "78ea3a8d69fb848f6ce19bf8e02baee6",
       "sourceName": "contracts/TrustForgeDAO.sol",
       "solcConfig": {
         "version": "0.8.28",

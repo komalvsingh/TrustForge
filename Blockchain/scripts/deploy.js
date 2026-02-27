@@ -61,16 +61,18 @@ async function main() {
     console.warn("   Consider using a separate treasury wallet for admin fees.\n");
   }
 
-  // ── Deploy TrustForge ────────────────────────────────────────────────────
-  console.log("\n[1/2] Deploying TrustForge...");
+  // ── TrustForge — already deployed, skipping ───────────────────────────────
+  // console.log("\n[1/2] Deploying TrustForge...");
+  // const TrustForge        = await ethers.getContractFactory("TrustForge");
+  // const trustForge        = await TrustForge.deploy(USDC_ADDRESS, ADMIN_WALLET);
+  // await trustForge.waitForDeployment();
+  // const trustForgeAddress = await trustForge.getAddress();
+  // console.log(`  ✅ TrustForge deployed at: ${trustForgeAddress}`);
+  // console.log(`  🔗 Tx hash: ${trustForge.deploymentTransaction().hash}`);
 
-  const TrustForge        = await ethers.getContractFactory("TrustForge");
-  const trustForge        = await TrustForge.deploy(USDC_ADDRESS, ADMIN_WALLET);
-  await trustForge.waitForDeployment();
-  const trustForgeAddress = await trustForge.getAddress();
-
-  console.log(`  ✅ TrustForge deployed at: ${trustForgeAddress}`);
-  console.log(`  🔗 Tx hash: ${trustForge.deploymentTransaction().hash}`);
+  // ⬇️  Paste your already-deployed TrustForge address here
+  const trustForgeAddress = "0x3013e7F2a98F60433BAe85c4E5569A980B0C7Cf7";
+  console.log(`\n[1/2] TrustForge — using existing deployment: ${trustForgeAddress}`);
 
   // ── Deploy TrustForgeDAO ─────────────────────────────────────────────────
   console.log("\n[2/2] Deploying TrustForgeDAO...");
@@ -99,7 +101,7 @@ async function main() {
     contracts: {
       TrustForge: {
         address: trustForgeAddress,
-        txHash:  trustForge.deploymentTransaction().hash,
+        txHash:  "existing deployment — not redeployed",
       },
       TrustForgeDAO: {
         address: daoAddress,
@@ -128,8 +130,9 @@ async function main() {
   console.log("\n╔══════════════════════════════════════════════════╗");
   console.log("║            Deployment Complete ✅                  ║");
   console.log("╚══════════════════════════════════════════════════╝");
-  console.log(`\n  TrustForge:    ${trustForgeAddress}`);
-  console.log(`  TrustForgeDAO: ${daoAddress}`);
+  console.log(`\n  TrustForge:    ${trustForgeAddress}  (existing)`);
+  console.log(`  TrustForgeDAO: ${daoAddress}  (new)`);
+  console.log("\n⚠️  Re-run all linking steps — new DAO address requires re-wiring.");
   console.log("\n⏭️  Next step:");
   console.log("  npx hardhat run scripts/link.js --network", network);
   console.log("");
