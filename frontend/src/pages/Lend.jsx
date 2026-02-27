@@ -228,7 +228,7 @@ const Lend = () => {
               {/* Wallet Card */}
               <div className="group relative bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-blue-500/50 transition-all duration-500 overflow-hidden hover:scale-105 hover:-translate-y-1">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-blue-400 to-purple-500 rounded-3xl opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500"></div>
-                
+
                 <div className="relative">
                   <div className="flex items-center gap-4 mb-6">
                     <div className="relative">
@@ -254,7 +254,7 @@ const Lend = () => {
               {/* Faucet Card */}
               <div className="group relative bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-purple-500/50 transition-all duration-500 overflow-hidden hover:scale-105 hover:-translate-y-1">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 via-purple-400 to-blue-500 rounded-3xl opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500"></div>
-                
+
                 <div className="relative">
                   <div className="flex items-center gap-4 mb-6">
                     <div className="relative">
@@ -304,7 +304,7 @@ const Lend = () => {
               <div className="group relative bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl p-10 hover:border-blue-500/30 transition-all duration-500 overflow-hidden hover:scale-[1.02] hover:-translate-y-1">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-3xl opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500"></div>
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                
+
                 <div className="relative">
                   <h3 className="text-3xl md:text-4xl font-black mb-8 flex items-center gap-3">
                     <div className="relative">
@@ -386,7 +386,7 @@ const Lend = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="group relative bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-green-500/50 transition-all duration-500 overflow-hidden hover:scale-105 hover:-translate-y-2">
                   <div className="absolute -inset-0.5 bg-gradient-to-r from-green-500 via-green-400 to-emerald-500 rounded-3xl opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500"></div>
-                  
+
                   <div className="relative">
                     <h4 className="text-sm text-gray-500 uppercase tracking-widest font-bold mb-6">
                       Interest Earned
@@ -414,7 +414,7 @@ const Lend = () => {
 
                 <div className="group relative bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-indigo-500/50 transition-all duration-500 overflow-hidden hover:scale-105 hover:-translate-y-2">
                   <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-indigo-400 to-purple-500 rounded-3xl opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500"></div>
-                  
+
                   <div className="relative">
                     <h4 className="text-sm text-gray-500 uppercase tracking-widest font-bold mb-6">
                       Pending Interest
@@ -422,7 +422,7 @@ const Lend = () => {
                     <div className="flex items-end justify-between mb-6">
                       <div>
                         <p className="text-4xl font-black text-indigo-400 mb-1">
-                          {lenderInfo ? lenderInfo.pendingInterest : "0.00"}
+                          {lenderInfo ? lenderInfo.totalPending : "0.00"}
                         </p>
                         <p className="text-gray-500 text-xs font-medium uppercase tracking-tight">
                           Accrued TFX
@@ -437,7 +437,7 @@ const Lend = () => {
                     </div>
                     <button
                       onClick={handleClaimInterest}
-                      disabled={!lenderInfo || Number(lenderInfo.pendingInterest) <= 0 || txLoading}
+                      disabled={!lenderInfo || Number(lenderInfo.totalPending) <= 0 || txLoading}
                       className="w-full py-4 bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 font-bold rounded-2xl hover:bg-indigo-600/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       Claim Earnings
@@ -452,14 +452,18 @@ const Lend = () => {
               {lenderInfo && (
                 <div className="group relative bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-blue-500/30 transition-all duration-500 overflow-hidden hover:scale-[1.02] hover:-translate-y-1">
                   <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-3xl opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500"></div>
-                  
+
                   <div className="relative flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-500 font-medium mb-1 uppercase tracking-widest">
                         Current Active Deposit
                       </p>
                       <h4 className="text-3xl md:text-4xl font-black bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                        {lenderInfo.depositedAmount} TFX
+                        {(
+                          parseFloat(lenderInfo.depositedLowRisk  || 0) +
+                          parseFloat(lenderInfo.depositedMedRisk  || 0) +
+                          parseFloat(lenderInfo.depositedHighRisk || 0)
+                        ).toFixed(6)} TFX
                       </h4>
                     </div>
                     <div className="relative">
@@ -487,7 +491,7 @@ const Lend = () => {
         }
 
         .bg-grid-pattern {
-          background-image: 
+          background-image:
             linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
             linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
           background-size: 50px 50px;

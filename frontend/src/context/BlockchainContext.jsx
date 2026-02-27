@@ -613,6 +613,121 @@ export const BlockchainProvider = ({ children }) => {
     } catch (err) { console.error("getLoanHistory:", err); return []; }
   };
 
+  /* ===================================================================
+     FAUCET / TFX BALANCE HELPERS
+     (The lending token is USDC, referred to as TFX in the UI)
+     =================================================================== */
+
+  /** Get USDC (TFX) balance for connected account */
+  const getTFXBalance = async (address) => {
+    return getUSDCBalance(address);
+  };
+
+  /**
+   * Check if user can claim from faucet.
+   * No on-chain faucet contract is deployed yet — always returns false.
+   * When a faucet is deployed, replace this with the actual check.
+   */
+  const canClaimFaucet = async () => {
+    return false;
+  };
+
+  /**
+   * Get faucet info (amount, cooldown etc).
+   * Returns static info since no on-chain faucet contract exists yet.
+   */
+  const getFaucetInfo = async () => {
+    return { faucetAmount: "10", cooldownHours: 24 };
+  };
+
+  /**
+   * Claim TFX from faucet.
+   * No on-chain faucet contract is deployed — throws a user-friendly error.
+   */
+  const claimTFX = async () => {
+    throw new Error("Faucet is not yet available. Please obtain test USDC from the Sepolia faucet.");
+  };
+
+  /* ===================================================================
+     BORROW COOLDOWN STATUS
+     Two types of cooldown:
+       1. Default cooldown  — 30 days after a missed payment (contract-enforced)
+       2. Repayment cooldown — 24 hrs after a successful repayment (UX guard)
+     =================================================================== */
+
+  /**
+   * Get borrow cooldown status for a user.
+   *
+   * Returns:
+   *   type               "none" | "repayment" | "default"
+   *   canBorrowAt        unix timestamp (0 if no cooldown)
+   *   secondsRemaining   seconds until they can borrow (0 if no cooldown)
+   *   isCoolingDown      bool
+   *
+   * Reads raw userProfiles mapping for lastDefaultTime and lastActivityTime
+   * (these fields are not exposed by getUserProfile view function).
+   */
+  const getBorrowCooldownStatus = async (address) => {
+    if (!trustForge) return { type: "none", canBorrowAt: 0, secondsRemaining: 0, isCoolingDown: false };
+    try {
+      const target = address || account;
+      const nowSec = Math.floor(Date.now() / 1000);
+
+      // Read raw profile fields (mapping is public)
+      const rawProfile = await trustForge.userProfiles(target);
+      // UserProfile struct field order:
+      // 0:username 1:trustScore 2:totalLoansTaken 3:successfulRepayments
+      // 4:defaults 5:hasActiveLoan 6:lastDefaultTime 7:walletFirstSeen
+      // 8:totalTransactions 9:vouchCount 10:lastActivityTime 11:lastVouchTime
+      // 12:loansInCurrentWindow 13:loanWindowStart 14:vouchBonus
+      const defaultsCount    = Number(rawProfile[4]);
+      const hasActiveLoan    = rawProfile[5];
+      const lastDefaultTime  = Number(rawProfile[6]);
+      const lastActivityTime = Number(rawProfile[10]);
+      const totalLoansTaken  = Number(rawProfile[2]);
+      const successfulRepays = Number(rawProfile[3]);
+
+      // ── 1. Default Cooldown (30 days, contract-enforced) ────────────────
+      const DEFAULT_COOLDOWN_SECS = 30 * 24 * 60 * 60; // 30 days
+      if (defaultsCount > 0 && lastDefaultTime > 0) {
+        const canBorrowAt = lastDefaultTime + DEFAULT_COOLDOWN_SECS;
+        if (nowSec < canBorrowAt) {
+          return {
+            type: "default",
+            canBorrowAt,
+            secondsRemaining: canBorrowAt - nowSec,
+            isCoolingDown: true,
+          };
+        }
+      }
+
+      // ── 2. Post-Repayment Cooldown (24 hrs, UX guard) ───────────────────
+      // Only applies if: user has taken at least one loan, has no active loan,
+      // and made a transaction (repayment) within the last 24 hours.
+      const REPAYMENT_COOLDOWN_SECS = 24 * 60 * 60; // 24 hours
+      if (
+        totalLoansTaken > 0 &&
+        !hasActiveLoan &&
+        lastActivityTime > 0
+      ) {
+        const canBorrowAt = lastActivityTime + REPAYMENT_COOLDOWN_SECS;
+        if (nowSec < canBorrowAt) {
+          return {
+            type: "repayment",
+            canBorrowAt,
+            secondsRemaining: canBorrowAt - nowSec,
+            isCoolingDown: true,
+          };
+        }
+      }
+
+      return { type: "none", canBorrowAt: 0, secondsRemaining: 0, isCoolingDown: false };
+    } catch (err) {
+      console.error("getBorrowCooldownStatus:", err);
+      return { type: "none", canBorrowAt: 0, secondsRemaining: 0, isCoolingDown: false };
+    }
+  };
+
   /**
    * Get interest rates for a specific risk pool.
    * Returns basis points (300 = 3%, 800 = 8%).
@@ -999,6 +1114,15 @@ export const BlockchainProvider = ({ children }) => {
       getPoolInterestRates,
       getDeploymentStatus,
       getConstants,
+
+      // TFX / Faucet helpers
+      getTFXBalance,
+      canClaimFaucet,
+      getFaucetInfo,
+      claimTFX,
+
+      // Borrow cooldown
+      getBorrowCooldownStatus,
 
       // Admin / governance
       setDAO,

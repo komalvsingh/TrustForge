@@ -1,20 +1,22 @@
 import { useState, useEffect, useRef } from "react";
 import { Shield, TrendingUp, Lock, Users, Zap, CheckCircle, ArrowRight, ArrowUpRight, ChevronRight, Wifi, Star, Globe, Activity } from "lucide-react";
 import Navbar from "../components/Navbar";
-
-const useBlockchain = () => ({ account: null });
+import { useBlockchain } from "../context/BlockchainContext";
 
 const Home = () => {
-  const { account } = useBlockchain();
+  const { account, getAllPoolStats, getUserProfile, computeTrustScore, getActiveLoan } = useBlockchain();
   const [activeBar, setActiveBar] = useState(11);
   const [counter, setCounter] = useState({ vol: 0, users: 0, rate: 0 });
   const [statsVisible, setStatsVisible] = useState(false);
   const statsRef = useRef(null);
+  // Live on-chain data
+  const [poolStats,   setPoolStats]   = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [liveScore,   setLiveScore]   = useState(null);
+  const [activeLoan,  setActiveLoan]  = useState(null);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveBar(prev => (prev + 1) % 12);
-    }, 900);
+    const interval = setInterval(() => { setActiveBar(prev => (prev + 1) % 12); }, 900);
     return () => clearInterval(interval);
   }, []);
 
@@ -26,10 +28,46 @@ const Home = () => {
     return () => observer.disconnect();
   }, []);
 
+  // Fetch public pool stats (no wallet needed)
   useEffect(() => {
-    if (!statsVisible) return;
-    const steps = 60;
-    let step = 0;
+    getAllPoolStats().then(ps => {
+      if (!ps) return;
+      setPoolStats(ps);
+      // Derive TVL = sum of all pool liquidity
+      const tvl = parseFloat(ps.lowRisk.totalLiquidity) + parseFloat(ps.medRisk.totalLiquidity) + parseFloat(ps.highRisk.totalLiquidity);
+      const activeLoansTotal = parseFloat(ps.lowRisk.totalActiveLoans) + parseFloat(ps.medRisk.totalActiveLoans) + parseFloat(ps.highRisk.totalActiveLoans);
+      // Animate counter toward real values (floor to 1 decimal)
+      const steps = 60;
+      let step = 0;
+      const timer = setInterval(() => {
+        step++;
+        const ease = 1 - Math.pow(1 - step / steps, 3);
+        setCounter({
+          vol:   parseFloat((ease * tvl).toFixed(2)),
+          users: Math.floor(ease * Math.max(activeLoansTotal, 1)),
+          rate:  parseFloat((ease * 94.7).toFixed(1)),   // repayment rate: fallback
+        });
+        if (step >= steps) clearInterval(timer);
+      }, 1600 / steps);
+      return () => clearInterval(timer);
+    }).catch(() => {});
+  }, []);
+
+  // Fetch per-user data when wallet connected
+  useEffect(() => {
+    if (!account) { setUserProfile(null); setLiveScore(null); setActiveLoan(null); return; }
+    Promise.all([getUserProfile(), computeTrustScore(), getActiveLoan()])
+      .then(([prof, score, loan]) => {
+        setUserProfile(prof);
+        setLiveScore(score);
+        setActiveLoan(loan);
+      }).catch(() => {});
+  }, [account]);
+
+  // Fallback counter animation when pool stats unavailable
+  useEffect(() => {
+    if (!statsVisible || poolStats) return;
+    const steps = 60; let step = 0;
     const timer = setInterval(() => {
       step++;
       const ease = 1 - Math.pow(1 - step / steps, 3);
@@ -37,7 +75,16 @@ const Home = () => {
       if (step >= steps) clearInterval(timer);
     }, 1600 / steps);
     return () => clearInterval(timer);
-  }, [statsVisible]);
+  }, [statsVisible, poolStats]);
+
+  // Derived display helpers
+  const displayScore = liveScore ?? (userProfile?.liveTrustScore ?? null);
+  const displayLimit = userProfile ? parseFloat(userProfile.maxBorrowingLimit || 0) : null;
+  const displayTier  = displayScore >= 700 ? "ELITE TIER" : displayScore >= 400 ? "TRUSTED TIER" : displayScore !== null ? "STARTER TIER" : "TRUSTED TIER";
+  const scorePct     = displayScore !== null ? Math.min(100, (displayScore / 1000) * 100) : 78.4;
+  const tvlDisplay   = poolStats
+    ? (() => { const v = parseFloat(poolStats.lowRisk.totalLiquidity) + parseFloat(poolStats.medRisk.totalLiquidity) + parseFloat(poolStats.highRisk.totalLiquidity); return v >= 1000 ? `$${(v/1000).toFixed(1)}K` : `$${v.toFixed(2)}`; })()
+    : "$2.4M";
 
   const features = [
     { icon: Shield, title: "Trust Over Collateral", description: "Borrow without assets. Your on-chain behavior is your credit score.", tag: "CORE", stat: "0 collateral required" },
@@ -141,11 +188,21 @@ const Home = () => {
       <div style={{ background: "#0c0c0c", borderBottom: "1px solid var(--b)", height: 34, display: "flex", alignItems: "center" }}>
         <div className="ticker-w">
           <div className="ticker-i">
-            {[...Array(2)].map((_, ri) =>
-              ["ETH / $3,241 ▲2.1%", "Trust Score: 784 ✦", "Active Loans: 12,840", "Total Volume: $2.4M", "Repayment Rate: 94.7%", "Avg APR: 5.8%", "New Wallets: 312 today", "Protocol Health: ✓ Excellent"].map((item, i) => (
+            {[...Array(2)].map((_, ri) => {
+              const tickerItems = [
+                `Total Liquidity: ${tvlDisplay}`,
+                displayScore !== null ? `Your Score: ${displayScore} ✦` : "Trust Score: — ✦",
+                poolStats ? `Active Loans: ${(parseFloat(poolStats.lowRisk.totalActiveLoans)+parseFloat(poolStats.medRisk.totalActiveLoans)+parseFloat(poolStats.highRisk.totalActiveLoans)).toFixed(2)} USDC` : "Active Loans: loading…",
+                `Total Liquidity: ${tvlDisplay}`,
+                "Repayment Rate: 94.7%",
+                "Avg APR: 5.8%",
+                poolStats ? `Pool Health: ✓ Operational` : "Protocol Health: ✓ Excellent",
+                account ? `Wallet: ${account.slice(0,6)}…${account.slice(-4)}` : "Connect wallet to borrow",
+              ];
+              return tickerItems.map((item, i) => (
                 <span key={`${ri}-${i}`} className="t-item"><span className="t-dot"></span>{item}</span>
-              ))
-            )}
+              ));
+            })}
           </div>
         </div>
         <div style={{ padding: "0 14px", borderLeft: "1px solid var(--b)", display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
@@ -187,7 +244,8 @@ const Home = () => {
                 ))}
               </div>
               <span style={{ fontSize: 13, color: "var(--td)", lineHeight: 1.6 }}>
-                <strong style={{ color: "var(--t)" }}>12,840</strong> borrowers already building trust
+                {poolStats
+                  ? <><strong style={{ color: "var(--t)" }}>{tvlDisplay}</strong> total liquidity in pools</>                  : <><strong style={{ color: "var(--t)" }}>12,840</strong> borrowers already building trust</>}
               </span>
             </div>
           </div>
@@ -201,36 +259,42 @@ const Home = () => {
                 <div>
                   <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)", marginBottom: 6, letterSpacing: ".06em" }}>TRUST SCORE</div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                    <span style={{ fontSize: 42, fontWeight: 700, letterSpacing: "-.04em", lineHeight: 1 }}>784</span>
-                    <span className="sc">+12 ↑</span>
+                    <span style={{ fontSize: 42, fontWeight: 700, letterSpacing: "-.04em", lineHeight: 1 }}>
+                      {displayScore !== null ? displayScore : account ? "…" : "784"}
+                    </span>
+                    {displayScore !== null && <span className="sc">{displayScore >= 700 ? "Elite ✦" : displayScore >= 400 ? "Trusted" : "Starter"}</span>}
                   </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-                  <span className="tgg">TRUSTED TIER</span>
+                  <span className="tgg">{displayTier}</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <div className="ld" style={{ width: 6, height: 6 }}></div>
-                    <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)" }}>Live</span>
+                    <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)" }}>{account ? "Live" : "Demo"}</span>
                   </div>
                 </div>
               </div>
               {/* Score bar */}
               <div style={{ marginBottom: 18 }}>
                 <div style={{ height: 6, background: "var(--bg3)", borderRadius: 99, overflow: "hidden" }}>
-                  <div className="prog-fill" style={{ height: "100%", borderRadius: 99 }}></div>
+                  <div style={{ height: "100%", width: `${scorePct}%`, background: "linear-gradient(90deg,var(--accent2),var(--accent))", borderRadius: 99, transition: "width 1s ease" }}></div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
                   <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--td)" }}>0</span>
-                  <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--accent)" }}>784 / 1000</span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--accent)" }}>
+                    {displayScore !== null ? `${displayScore} / 1000` : account ? "Loading…" : "784 / 1000"}
+                  </span>
                 </div>
               </div>
               {/* Borrow limit */}
               <div style={{ background: "var(--bg3)", borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                   <span style={{ fontSize: 12, color: "var(--td)" }}>Borrow Limit</span>
-                  <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--t)" }}>$3,200 / $5,000</span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--t)" }}>
+                    {displayLimit !== null ? `$${displayLimit.toFixed(2)} USDC` : account ? "Loading…" : "$5,000 USDC"}
+                  </span>
                 </div>
                 <div style={{ height: 5, borderRadius: 99, background: "var(--bg2)", overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: "64%", background: "var(--accent)", borderRadius: 99 }}></div>
+                  <div style={{ height: "100%", width: displayLimit !== null ? `${Math.min(100, (displayLimit / 20) * 100)}%` : "64%", background: "var(--accent)", borderRadius: 99, transition: "width 1s ease" }}></div>
                 </div>
               </div>
               {/* Mini chart */}
@@ -247,7 +311,18 @@ const Home = () => {
               </div>
               {/* Stats */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {[{ l: "Active Loan", v: "$1,200", s: "Due Mar 15" }, { l: "Interest Rate", v: "4.2%", s: "APR trust-based" }].map((item, i) => (
+                {[
+                  {
+                    l: "Active Loan",
+                    v: activeLoan ? `$${parseFloat(activeLoan.principal).toFixed(2)}` : account ? "No loan" : "$1,200",
+                    s: activeLoan ? `Due ${new Date(activeLoan.dueDate * 1000).toLocaleDateString("en-US",{month:"short",day:"numeric"})}` : account ? "— none active" : "Due Mar 15"
+                  },
+                  {
+                    l: "Borrow Limit",
+                    v: displayLimit !== null ? `$${displayLimit.toFixed(0)}` : account ? "…" : "$5,000",
+                    s: displayScore !== null ? `Score: ${displayScore}` : "APR trust-based"
+                  }
+                ].map((item, i) => (
                   <div key={i} style={{ background: "var(--bg3)", borderRadius: 10, padding: "12px 14px" }}>
                     <div style={{ fontSize: 11, color: "var(--td)", marginBottom: 4 }}>{item.l}</div>
                     <div style={{ fontFamily: "var(--mono)", fontSize: 17, fontWeight: 600, color: "var(--accent)", marginBottom: 2 }}>{item.v}</div>
@@ -265,10 +340,27 @@ const Home = () => {
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}>
             {[
-              { label: "Total Volume Lent", value: `$${counter.vol.toFixed(1)}M`, change: "+18.2%", icon: TrendingUp },
-              { label: "Active Borrowers", value: counter.users.toLocaleString(), change: "+4.1%", icon: Users },
+              {
+                label: "Total Liquidity",
+                value: poolStats
+                  ? (() => { const v = parseFloat(poolStats.lowRisk.totalLiquidity)+parseFloat(poolStats.medRisk.totalLiquidity)+parseFloat(poolStats.highRisk.totalLiquidity); return v >= 1 ? `$${v.toFixed(2)}` : `$${counter.vol.toFixed(1)}M`; })()
+                  : `$${counter.vol.toFixed(1)}M`,
+                change: "+live", icon: TrendingUp
+              },
+              {
+                label: "Active Loans (USDC)",
+                value: poolStats
+                  ? (() => { const v = parseFloat(poolStats.lowRisk.totalActiveLoans)+parseFloat(poolStats.medRisk.totalActiveLoans)+parseFloat(poolStats.highRisk.totalActiveLoans); return `$${v.toFixed(2)}`; })()
+                  : counter.users.toLocaleString(),
+                change: "+live", icon: Users
+              },
               { label: "Repayment Rate", value: `${counter.rate}%`, change: "+0.3%", icon: CheckCircle },
-              { label: "Avg Trust Score", value: "641", change: "+8pts", icon: Star },
+              {
+                label: "Your Trust Score",
+                value: displayScore !== null ? String(displayScore) : account ? "…" : "641",
+                change: account && displayScore !== null ? (displayScore >= 700 ? "Elite" : displayScore >= 400 ? "Trusted" : "Starter") : "+live",
+                icon: Star
+              },
             ].map((s, i) => {
               const Icon = s.icon;
               return (
@@ -446,9 +538,25 @@ const Home = () => {
                   </div>
                 </div>
                 {[
-                  { label: "Wallet Age", value: "2.3 years", pct: 70 },
-                  { label: "Repayment History", value: "100%", pct: 100 },
-                  { label: "Activity Score", value: "High", pct: 85 },
+                  {
+                    label: "Wallet Age",
+                    value: userProfile ? `${(userProfile.walletAge / 86400).toFixed(0)} days` : "— connect wallet",
+                    pct:   userProfile ? Math.min(100, (userProfile.walletAge / (90 * 86400)) * 100) : 70
+                  },
+                  {
+                    label: "Repayment History",
+                    value: userProfile && userProfile.totalLoansTaken > 0
+                      ? `${Math.round((userProfile.successfulRepayments / userProfile.totalLoansTaken) * 100)}%`
+                      : userProfile ? "No loans yet" : "100%",
+                    pct:   userProfile && userProfile.totalLoansTaken > 0
+                      ? Math.round((userProfile.successfulRepayments / userProfile.totalLoansTaken) * 100)
+                      : 100
+                  },
+                  {
+                    label: "Trust Score",
+                    value: displayScore !== null ? `${displayScore} / 1000` : account ? "…" : "641 / 1000",
+                    pct:   displayScore !== null ? Math.min(100, (displayScore / 1000) * 100) : 64
+                  },
                 ].map((item, i) => (
                   <div key={i} style={{ marginBottom: i < 2 ? 14 : 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>

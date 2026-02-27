@@ -52,7 +52,7 @@ const BorrowerDashboard = () => {
     account, connectWallet,
     getUserProfile, getActiveLoan, getWalletMaturity,
     requestLoan, repayLoan, getLoanHistory, loading,
-    computeTrustScore,
+    computeTrustScore, getBorrowCooldownStatus,
   } = useBlockchain();
 
   const [profile,     setProfile]     = useState(null);
@@ -65,6 +65,20 @@ const BorrowerDashboard = () => {
   const [duration,    setDuration]    = useState("");
   const [txLoading,   setTxLoading]   = useState(false);
   const [msg,         setMsg]         = useState({ type: "", text: "" });
+  const [cooldown,    setCooldown]    = useState({ type: "none", isCoolingDown: false, canBorrowAt: 0, secondsRemaining: 0 });
+
+  /* ── Helpers ── */
+  const formatTimeLeft = (seconds) => {
+    if (seconds <= 0) return "now";
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const parts = [];
+    if (d > 0) parts.push(`${d}d`);
+    if (h > 0) parts.push(`${h}h`);
+    if (m > 0 || parts.length === 0) parts.push(`${m}m`);
+    return parts.join(" ");
+  };
 
   const flash = (type, text) => {
     setMsg({ type, text });
@@ -73,11 +87,11 @@ const BorrowerDashboard = () => {
 
   const loadData = async () => {
     try {
-      const [p, l, m, h, s] = await Promise.all([
+      const [p, l, m, h, s, cd] = await Promise.all([
         getUserProfile(), getActiveLoan(), getWalletMaturity(),
-        getLoanHistory(), computeTrustScore(),
+        getLoanHistory(), computeTrustScore(), getBorrowCooldownStatus(),
       ]);
-      setProfile(p); setLoan(l); setMaturity(m); setHistory(h); setLiveScore(s);
+      setProfile(p); setLoan(l); setMaturity(m); setHistory(h); setLiveScore(s); setCooldown(cd);
     } catch (e) { console.error(e); }
   };
 
@@ -465,13 +479,58 @@ const BorrowerDashboard = () => {
                     ))}
                   </div>
 
+                  {/* Cooldown Banner — shown when user cannot borrow */}
+                  {cooldown.isCoolingDown && (
+                    <div className={`mb-6 p-5 rounded-2xl border flex items-start gap-4 ${
+                      cooldown.type === "default"
+                        ? "bg-red-500/5 border-red-500/30"
+                        : "bg-amber-500/5 border-amber-500/30"
+                    }`}>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        cooldown.type === "default"
+                          ? "bg-red-500/10 text-red-400"
+                          : "bg-amber-500/10 text-amber-400"
+                      }`}>
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className={`font-black text-sm mb-1 ${
+                          cooldown.type === "default" ? "text-red-400" : "text-amber-400"
+                        }`}>
+                          {cooldown.type === "default"
+                            ? "🔒 Default Cooldown Active"
+                            : "⏳ Repayment Cooldown Active"}
+                        </p>
+                        <p className={`text-xs leading-relaxed ${
+                          cooldown.type === "default" ? "text-red-400/70" : "text-amber-400/70"
+                        }`}>
+                          {cooldown.type === "default"
+                            ? "You missed a payment. You can borrow again in"
+                            : "Thanks for repaying! You can borrow again in"}{" "}
+                          <span className="font-black">{formatTimeLeft(cooldown.secondsRemaining)}</span>
+                        </p>
+                        <p className={`text-[10px] mt-1 font-medium ${
+                          cooldown.type === "default" ? "text-red-400/50" : "text-amber-400/50"
+                        }`}>
+                          Available from:{" "}
+                          {new Date(cooldown.canBorrowAt * 1000).toLocaleString("en-US", {
+                            day: "numeric", month: "short", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     onClick={handleRequest}
-                    disabled={txLoading}
+                    disabled={txLoading || cooldown.isCoolingDown}
                     className="group w-full py-5 bg-[#A8CFA3] hover:bg-[#d4ff3d] text-black font-black text-base rounded-2xl transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 flex items-center justify-center gap-3"
                   >
                     {txLoading ? (
                       <><RefreshCw className="w-5 h-5 animate-spin" /> Submitting…</>
+                    ) : cooldown.isCoolingDown ? (
+                      <><Clock className="w-5 h-5" /> Borrow in {formatTimeLeft(cooldown.secondsRemaining)}</>
                     ) : (
                       <>Submit Loan Request <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></>
                     )}
