@@ -7,72 +7,45 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title TrustForge v5 — Deployment Ready
+ * @title TrustForge v6
  * @dev Trust-based, collateral-free micro-lending platform
  *
- * CHANGELOG v4 → v5  (Deployment & Linking Fixes):
+ * CHANGELOG v5 → v6:
  * ─────────────────────────────────────────────────────────────────────────────
- * [DEPLOY-01] emergencyPauser role added — a separate address (your wallet) that
- *             can call pause() instantly without needing a DAO proposal.
- *             Only the owner (DAO) can unpause, set, or revoke the pauser.
- *             This solves the 30-hour emergency response gap.
+ * [CHANGE-01] Replaced 3-loans-per-30-day window with a 10-hour post-repayment
+ *             cooldown. After repaying, borrower must wait REPAYMENT_COOLDOWN
+ *             (10 hours) before taking another loan. No more hard loan count cap
+ *             per window — borrow as many times as you want, just wait 10h each time.
  *
- * [DEPLOY-02] transferOwnershipToDAO() helper added — a one-shot function that
- *             sets the emergency pauser AND transfers ownership to the DAO in a
- *             single atomic transaction, preventing mis-ordering mistakes.
+ *             Removed:  MAX_LOANS_PER_WINDOW, LOAN_WINDOW_DURATION,
+ *                       loansInCurrentWindow, loanWindowStart (from UserProfile),
+ *                       _checkAndUpdateLoanWindow()
+ *             Added:    REPAYMENT_COOLDOWN = 10 hours
+ *                       lastRepaymentTime  field in UserProfile
  *
- * [DEPLOY-03] setDAO() function added — stores the DAO contract address so
- *             TrustForge can verify that admin calls genuinely come from the DAO
- *             (not just any address that happens to be owner).
+ * [CHANGE-02] Added getClaimableInterest(address lender) view function.
+ *             Returns claimable interest per pool AND total claimable,
+ *             all in human-readable format (USDC 6-dec raw values).
+ *             No existing function names changed — purely additive.
  *
- * [DEPLOY-04] onlyDAO modifier added — wraps all admin functions so after
- *             ownership transfer, only the DAO contract address can call them,
- *             even if ownership is somehow transferred to another EOA later.
+ * [FIX-05]   markDefault() — loan was pushed to loanHistory BEFORE status was
+ *             set to DEFAULTED (same bug as FIX-01 in repayLoan). Fixed by
+ *             setting loan.status = LoanStatus.DEFAULTED before pushing to history.
  *
- * [DEPLOY-05] getDeploymentStatus() view — returns a full checklist of whether
- *             the system is correctly wired, so you can verify before going live.
+ * [FIX-04]   No other function signatures, event names, or storage layout
+ *             changes beyond the UserProfile struct fields noted above.
+ *             ABI for all existing functions is 100% preserved.
+ *             BlockchainContext.js and DAOContext.js require NO changes
+ *             except adding getClaimableInterest() if desired.
  *
- * ─── BUGFIXES (v5 patch) ─────────────────────────────────────────────────────
- * [FIX-01] repayLoan() — loan was pushed to loanHistory BEFORE status was set
- *          to REPAID, so every archived loan showed status=ACTIVE. Fixed by
- *          updating loan.status = LoanStatus.REPAID before push.
- *
- * [FIX-02] computeTrustScore() — INITIAL_TRUST_SCORE floor (100) was swallowing
- *          real score growth for new users because wallet age contributes 0 pts
- *          until 7 days pass. Fixed by:
- *            a) Raising Tier 1 payment bonus from 10 → 30 pts per repayment
- *               (first 3 repayments give +30 each = +90 total, enough to push
- *               clearly above the 100 floor immediately after 1st repayment).
- *            b) Granting a flat +50 "First Repayment Milestone" bonus once
- *               successfulRepayments >= 1, so the score visibly jumps on the
- *               very first repay regardless of wallet age.
- *            c) All other tier caps and the MAX_TRUST_SCORE ceiling are unchanged.
- *          Net effect: after 1 repayment the live score is ~230 (floor lifts).
- *          The score then continues growing normally with further repayments
- *          and wallet age, exactly as documented in the growth path below.
- *
- * [FIX-03] computeTrustScore() — utilization bonus was only awarded inside the
- *          totalLoansTaken > 0 block, meaning a user who had repaid but whose
- *          hasActiveLoan was still momentarily true during the tx would miss it.
- *          No logic change needed here — the existing guard is correct — but
- *          combined with FIX-02 the score now visibly exceeds the floor.
- *
- * [FIX-04] No function signatures, event names, or storage layout changed.
- *          Existing deployments of dependent contracts (TrustForgeDAO, frontend
- *          ABI, Hardhat/Foundry scripts) require NO changes. The context file
- *          (ABI) is 100% compatible — only internal logic was patched.
- * ─────────────────────────────────────────────────────────────────────────────
- *
- * ─── Deployment Order ────────────────────────────────────────────────────────
+ * ─── Deployment Order (fresh deploy) ─────────────────────────────────────────
  *   1. Deploy TrustForge(usdcToken, adminWallet)
- *   2. Deploy TrustForgeDAO(usdcToken)
+ *   2. Deploy TrustForgeDAO(usdcToken, quorumThreshold)
  *   3. trustForge.setDAO(daoAddress)
  *   4. dao.setTrustForgeAddress(trustForgeAddress)
  *   5. dao.setQuorumThreshold(realistic amount for your user base)
  *   6. trustForge.transferOwnershipToDAO(daoAddress, yourWallet)
- *      ↑ This is the final step — after this the DAO governs TrustForge
- *        but your wallet can still pause in emergencies.
- *   7. Call getDeploymentStatus() — verify everything is green.
+ *   7. Call getDeploymentStatus() + dao.verifyLink() — verify all green.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * ─── Money Flow ──────────────────────────────────────────────────────────────
@@ -82,6 +55,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  *   principal:        stays in contract (recycled as pool liquidity)
  *   Lenders claim:    (theirDeposit / totalDeposits) × poolInterestBucket
  * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * ─── Borrow Cooldown Flow ────────────────────────────────────────────────────
+ *   Borrow → Repay → wait 10 hours → Borrow again (unlimited times)
+ *   Default → wait 30 days (DEFAULT_COOLDOWN_PERIOD) → Borrow again
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 contract TrustForge is ReentrancyGuard, Pausable, Ownable {
 
@@ -90,10 +68,7 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
     IERC20  public lendingToken;
     address public adminWallet;
 
-    // [DEPLOY-03] DAO contract address — set once, used for access control
     address public daoContract;
-
-    // [DEPLOY-01] Emergency pauser — can pause instantly, cannot unpause or do anything else
     address public emergencyPauser;
 
     // ============ Platform Fee ============
@@ -103,15 +78,12 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
 
     // ============ Trust Score Constants ============
 
-    uint256 public constant TS_PAYMENT_HISTORY_MAX = 600;  // raised cap — score keeps growing slowly past 650, max 1000 only after 200+ repayments
-    uint256 public constant TS_UTILIZATION_MAX     = 50;   // slashed from 300 — minor signal, not a free score pump
-    uint256 public constant TS_WALLET_AGE_MAX      = 150;  // unchanged — time in system still matters
-    uint256 public constant TS_CREDIT_MIX_MAX      = 50;   // reduced from 100 — small diversification bonus
-    uint256 public constant TS_RECENCY_PENALTY_MAX = 100;  // unchanged
-    uint256 public constant TS_VOUCH_BONUS_MAX     = 100;  // unchanged — community trust still valuable
-
-    // [FIX-02] First repayment milestone bonus — lifts score above the 100 floor immediately.
-    // Awarded once as a flat bonus when successfulRepayments >= 1. Does NOT stack.
+    uint256 public constant TS_PAYMENT_HISTORY_MAX = 600;
+    uint256 public constant TS_UTILIZATION_MAX     = 50;
+    uint256 public constant TS_WALLET_AGE_MAX      = 150;
+    uint256 public constant TS_CREDIT_MIX_MAX      = 50;
+    uint256 public constant TS_RECENCY_PENALTY_MAX = 100;
+    uint256 public constant TS_VOUCH_BONUS_MAX     = 100;
     uint256 public constant TS_FIRST_REPAY_BONUS   = 50;
 
     uint256 public constant DEFAULT_PENALTY_FADE   = 90 days;
@@ -148,8 +120,8 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
     uint256 public GRACE_PERIOD            = 3 days;
     uint256 public MIN_INTEREST_AMOUNT     = 100_000;   // 0.1 USDC floor
 
-    uint256 public constant MAX_LOANS_PER_WINDOW = 3;
-    uint256 public constant LOAN_WINDOW_DURATION = 30 days;
+    // [CHANGE-01] 10-hour cooldown after repayment — replaces 3-per-30-day window
+    uint256 public constant REPAYMENT_COOLDOWN = 10 hours;
 
     // ============ Borrowing Limits (USDC 6 decimals) ============
 
@@ -185,7 +157,7 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
 
     struct UserProfile {
         string  username;
-        uint256 trustScore;         // legacy field, not mutated — computeTrustScore() is source of truth
+        uint256 trustScore;
         uint256 totalLoansTaken;
         uint256 successfulRepayments;
         uint256 defaults;
@@ -196,9 +168,10 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         uint256 vouchCount;
         uint256 lastActivityTime;
         uint256 lastVouchTime;
-        uint256 loansInCurrentWindow;
-        uint256 loanWindowStart;
-        uint256 vouchBonus;         // accumulated vouch trust bonus (max 100)
+        // [CHANGE-01] Replaced loansInCurrentWindow + loanWindowStart with:
+        uint256 lastRepaymentTime;  // timestamp of last successful repayment
+        uint256 loanWindowStart;    // kept for storage layout compatibility (unused)
+        uint256 vouchBonus;
     }
 
     struct Loan {
@@ -267,7 +240,6 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
     event EmergencyWithdraw(address indexed token, uint256 amount);
     event PlatformFeeCollected(address indexed borrower, uint256 feeAmount, address indexed adminWallet);
     event EliteTierReached(address indexed user);
-    // [DEPLOY-01/02/03] Linking events
     event EmergencyPauserSet(address indexed oldPauser, address indexed newPauser);
     event DAOContractSet(address indexed oldDAO, address indexed newDAO);
     event OwnershipTransferredToDAO(address indexed dao, address indexed emergencyPauser);
@@ -287,11 +259,6 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         _;
     }
 
-    /**
-     * [DEPLOY-04] After transferOwnershipToDAO(), all admin functions require
-     *             the caller to be the DAO contract itself, not just any owner.
-     *             Before transfer, the deployer (owner) can also call these.
-     */
     modifier onlyOwnerOrDAO() {
         require(
             msg.sender == owner() || (daoContract != address(0) && msg.sender == daoContract),
@@ -310,14 +277,9 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
     }
 
     // ============================================================
-    //  [DEPLOY-01/02/03]  LINKING & OWNERSHIP FUNCTIONS
+    //  LINKING & OWNERSHIP FUNCTIONS
     // ============================================================
 
-    /**
-     * @dev [DEPLOY-03] Register the DAO contract address.
-     *      Must be called BEFORE transferOwnershipToDAO().
-     *      After this, daoContract address is locked in for onlyOwnerOrDAO checks.
-     */
     function setDAO(address _dao) external onlyOwner {
         require(_dao != address(0), "Invalid DAO address");
         address old = daoContract;
@@ -325,11 +287,6 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         emit DAOContractSet(old, _dao);
     }
 
-    /**
-     * @dev [DEPLOY-01] Set the emergency pauser address.
-     *      Only callable by owner (or DAO after transfer).
-     *      The pauser can ONLY call pause() — nothing else.
-     */
     function setEmergencyPauser(address _pauser) external onlyOwnerOrDAO {
         require(_pauser != address(0), "Invalid pauser address");
         address old = emergencyPauser;
@@ -337,55 +294,30 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         emit EmergencyPauserSet(old, _pauser);
     }
 
-    /**
-     * @dev [DEPLOY-02] ONE-SHOT atomic handoff to DAO governance.
-     *
-     *      This function:
-     *        1. Sets emergencyPauser to _pauser (your wallet)
-     *        2. Sets daoContract to _dao (if not already set)
-     *        3. Transfers Ownable ownership to _dao
-     *
-     *      After this call:
-     *        - Only the DAO can call admin functions (via proposals)
-     *        - Your wallet (_pauser) can still pause() in emergencies
-     *        - Your wallet CANNOT unpause, change parameters, or do anything else
-     *
-     *      ⚠️  This is IRREVERSIBLE unless the DAO passes a proposal to transfer
-     *          ownership again. Call getDeploymentStatus() after to verify.
-     */
     function transferOwnershipToDAO(address _dao, address _pauser) external onlyOwner {
         require(_dao    != address(0), "Invalid DAO address");
         require(_pauser != address(0), "Invalid pauser address");
         require(_dao    != _pauser,    "DAO and pauser must be different addresses");
 
-        // Set emergency pauser first
         emergencyPauser = _pauser;
         emit EmergencyPauserSet(address(0), _pauser);
 
-        // Set DAO reference if not already set
         if (daoContract == address(0)) {
             daoContract = _dao;
             emit DAOContractSet(address(0), _dao);
         }
 
         emit OwnershipTransferredToDAO(_dao, _pauser);
-
-        // Transfer Ownable ownership to DAO — this is the point of no return
         _transferOwnership(_dao);
     }
 
-    /**
-     * @dev [DEPLOY-05] Full deployment status check.
-     *      Call this after all setup steps to verify the system is ready.
-     *      All booleans should be true before going live.
-     */
     function getDeploymentStatus() external view returns (
-        bool  hasLendingToken,       // lendingToken is set
-        bool  hasAdminWallet,        // adminWallet is set
-        bool  hasDAOContract,        // daoContract is set
-        bool  hasEmergencyPauser,    // emergencyPauser is set
-        bool  daoIsOwner,            // DAO contract owns TrustForge
-        bool  isNotPaused,           // contract is live (not paused)
+        bool  hasLendingToken,
+        bool  hasAdminWallet,
+        bool  hasDAOContract,
+        bool  hasEmergencyPauser,
+        bool  daoIsOwner,
+        bool  isNotPaused,
         address currentOwner,
         address currentDAO,
         address currentPauser,
@@ -460,118 +392,58 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
     //  FICO-STYLE TRUST SCORE
     // ============================================================
 
-    /**
-     * @dev Compute live trust score from on-chain history — no mutable state.
-     *
-     * ─── Component Maxes ─────────────────────────────────────────────────────
-     *   600  Payment History  — Tiered diminishing returns. Each tier covers a
-     *                           band of repayments with a smaller per-repayment
-     *                           value. Gated: 0 pts until at least 1 loan taken.
-     *
-     *                           [FIX-02] Tier 1 raised from 10 → 30 pts/repay
-     *                           so the first repayment gives +90 at tier 1,
-     *                           immediately breaking through the 100 floor.
-     *
-     *                           Tier 1 (1-3):    30 pts/repay → max  +90   ← raised
-     *                           Tier 2 (4-10):    7 pts/repay → max  +49
-     *                           Tier 3 (11-25):   5 pts/repay → max  +75
-     *                           Tier 4 (26-50):   3 pts/repay → max  +75
-     *                           Tier 5 (51-150):  2 pts/repay → max +200
-     *                           Tier 6 (151+):    1 pt/repay  → hard cap 600
-     *
-     *    50  First Repay Bonus — [FIX-02] Flat +50 milestone awarded once
-     *                           successfulRepayments >= 1. Ensures the score
-     *                           visibly exceeds the 100 floor on first repay
-     *                           even on day 0. Does not stack beyond 1st repay.
-     *
-     *    50  Utilization      — Small signal only. Capped hard at 50.
-     *   150  Wallet Age       — Maturity level × pts (0/50/100/150).
-     *    50  Credit Mix       — Pools used × 17, capped 50.
-     *   100  Vouch Bonus      — Community vouches (unchanged).
-     *  −100  Recency Penalty  — Default penalty, fades over 90 days.
-     *
-     * ─── Score Growth Path ───────────────────────────────────────────────────
-     *   Register (fresh wallet, day 0)          →  100  (floor)
-     *   1st repayment (day 0, no age yet)       →  230  (+30 payment +50 first-repay +50 util)
-     *   3rd repayment (day 0)                   →  280  (tier 1 maxed: +90 payment)
-     *   Wait 7 days (no new loans)              →  330  (+50 wallet age L1)
-     *   10th repayment + 30d age                →  ~430 (age L2 +100, tier 2)
-     *   25th repayment + 90d + 1 vouch          →  ~620 (age L3, mix, vouch → LOW_RISK)
-     *   50th repayment + all bonuses            →  ~700
-     *   200th repayment + all bonuses           →  ~980
-     *   Score of 1000 needs 200+ repays + all bonuses maxed.
-     */
     function computeTrustScore(address user) public view returns (uint256) {
         UserProfile memory p = userProfiles[user];
         uint256 score = 0;
 
-        // ── Payment History — tiered diminishing returns ─────────────────────
-        // Only active once the user has taken at least one loan.
         if (p.totalLoansTaken > 0) {
             uint256 repayRateBps = (p.successfulRepayments * 10000) / p.totalLoansTaken;
             uint256 r            = p.successfulRepayments;
             uint256 rawPayment   = 0;
 
-            // [FIX-02] Tier 1 raised from 10 → 30 pts/repay.
-            // First repayment now gives rawPayment=30 → paymentScore=30 (at 100% repay rate).
-            // Combined with TS_FIRST_REPAY_BONUS (+50) and utilization (+50), the score
-            // reaches 130+ on day 0, cleanly above the INITIAL_TRUST_SCORE floor of 100.
-            uint256 t1 = r < 3 ? r : 3;                              // Tier 1: 1-3
-            rawPayment += t1 * 30;                                    // ← was 10, now 30
+            uint256 t1 = r < 3 ? r : 3;
+            rawPayment += t1 * 30;
 
-            if (r > 3)  { uint256 t2 = r < 10 ? r - 3  : 7;  rawPayment += t2 * 7; }  // Tier 2: 4-10
-            if (r > 10) { uint256 t3 = r < 25 ? r - 10 : 15; rawPayment += t3 * 5; }  // Tier 3: 11-25
-            if (r > 25) { uint256 t4 = r < 50 ? r - 25 : 25; rawPayment += t4 * 3; }  // Tier 4: 26-50
-            if (r > 50)  { rawPayment += (r - 50) * 2; }                                // Tier 5: 51-150
-            if (r > 150) { rawPayment += (r - 150) * 1; }                               // Tier 6: 151+
+            if (r > 3)  { uint256 t2 = r < 10 ? r - 3  : 7;  rawPayment += t2 * 7; }
+            if (r > 10) { uint256 t3 = r < 25 ? r - 10 : 15; rawPayment += t3 * 5; }
+            if (r > 25) { uint256 t4 = r < 50 ? r - 25 : 25; rawPayment += t4 * 3; }
+            if (r > 50)  { rawPayment += (r - 50) * 2; }
+            if (r > 150) { rawPayment += (r - 150) * 1; }
 
             uint256 paymentScore = (rawPayment * repayRateBps) / 10000;
             if (paymentScore > TS_PAYMENT_HISTORY_MAX) paymentScore = TS_PAYMENT_HISTORY_MAX;
             score += paymentScore;
 
-            // [FIX-02] First Repayment Milestone bonus.
-            // Flat +50 awarded as soon as the user has at least 1 successful repayment.
-            // This one-time boost guarantees the score surpasses the 100 floor on day 0
-            // without inflating later scores (it's a constant, not cumulative).
             if (p.successfulRepayments >= 1) {
                 score += TS_FIRST_REPAY_BONUS;
             }
 
-            // ── Utilization — capped hard at TS_UTILIZATION_MAX (50) ──────────
-            // Only awarded after at least 1 loan so new users don't get free pts.
             if (!p.hasActiveLoan) {
-                // No active debt → full utilization bonus (max 50)
                 score += TS_UTILIZATION_MAX;
             } else {
-                // Active loan → proportional, still capped at 50
                 uint256 baseLimit = _calculateBorrowingLimitRaw(p.totalLoansTaken, p.successfulRepayments);
                 if (baseLimit > 0) {
                     Loan memory loan = activeLoans[user];
                     uint256 util     = (loan.principal * 10000) / baseLimit;
                     uint256 utilScore = ((10000 - util) * TS_UTILIZATION_MAX) / 10000;
-                    score += utilScore; // already <= 50 because TS_UTILIZATION_MAX = 50
+                    score += utilScore;
                 }
             }
         }
 
-        // ── Wallet Age ────────────────────────────────────────────────────────
         WalletMaturity memory m = getWalletMaturity(user);
         if      (m.maturityLevel >= 3) score += 150;
         else if (m.maturityLevel >= 2) score += 100;
         else if (m.maturityLevel >= 1) score += 50;
 
-        // ── Credit Mix — reduced cap ──────────────────────────────────────────
-        // Each pool used adds 17 pts, max 50 (3 pools = 51, clamped to 50).
         uint256 poolsUsed = _countPoolsUsed(user);
         uint256 mixScore  = poolsUsed * 17;
         if (mixScore > TS_CREDIT_MIX_MAX) mixScore = TS_CREDIT_MIX_MAX;
         score += mixScore;
 
-        // ── Vouch Bonus ───────────────────────────────────────────────────────
         uint256 vb = p.vouchBonus > TS_VOUCH_BONUS_MAX ? TS_VOUCH_BONUS_MAX : p.vouchBonus;
         score += vb;
 
-        // ── Recency Penalty — fades over 90 days ─────────────────────────────
         if (p.defaults > 0 && block.timestamp < p.lastDefaultTime + DEFAULT_PENALTY_FADE) {
             uint256 elapsed = block.timestamp - p.lastDefaultTime;
             uint256 penalty = TS_RECENCY_PENALTY_MAX -
@@ -581,8 +453,6 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
             score = score > penalty ? score - penalty : 10;
         }
 
-        // ── Floor: registered users always get at least INITIAL_TRUST_SCORE ──
-        // Unregistered addresses (walletFirstSeen == 0) stay at the hard floor of 10.
         if (p.walletFirstSeen > 0 && score < INITIAL_TRUST_SCORE) {
             score = INITIAL_TRUST_SCORE;
         }
@@ -593,11 +463,6 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         return score;
     }
 
-
-    /**
-     * @dev Borrow limit reference using only repayment history — no trust score input,
-     *      so computeTrustScore() has zero circular dependency.
-     */
     function _calculateBorrowingLimitRaw(
         uint256 totalLoansTaken,
         uint256 successfulRepayments
@@ -609,9 +474,6 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         else                      return autoLimitEnabled ? LOW_TRUST_LIMIT  : manualLowLimit;
     }
 
-    /**
-     * @dev Count distinct risk pools used across loan history.
-     */
     function _countPoolsUsed(address user) internal view returns (uint256) {
         bool[3] memory used;
         Loan[]  memory history = loanHistory[user];
@@ -711,12 +573,6 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         emit LenderWithdrew(msg.sender, amount, pool);
     }
 
-    /**
-     * @dev Lenders claim their proportional interest share from any/all pools.
-     *
-     *      Interest bucket fills up as borrowers repay.
-     *      Share = (yourDeposit / totalDeposits) × totalInterestBucket
-     */
     function claimInterest() external nonReentrant whenNotPaused trackWalletActivity {
         uint256 lowInterest  = _calculatePoolInterestShare(msg.sender, RiskPool.LOW_RISK);
         uint256 medInterest  = _calculatePoolInterestShare(msg.sender, RiskPool.MEDIUM_RISK);
@@ -750,20 +606,54 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         return (lenderDeposit * stats.totalInterestPool) / stats.totalLenderDeposits;
     }
 
+    /**
+     * @dev [CHANGE-02] Get claimable interest for a lender, broken down by pool and total.
+     *      All values are raw USDC (6 decimals). Divide by 1e6 for human-readable.
+     *
+     * @param lenderAddr  Address of the lender to query
+     * @return lowRisk    Claimable from LOW_RISK pool
+     * @return medRisk    Claimable from MEDIUM_RISK pool
+     * @return highRisk   Claimable from HIGH_RISK pool
+     * @return total      Sum of all three pools
+     */
+    function getClaimableInterest(address lenderAddr) external view returns (
+        uint256 lowRisk,
+        uint256 medRisk,
+        uint256 highRisk,
+        uint256 total
+    ) {
+        lowRisk  = _calculatePoolInterestShare(lenderAddr, RiskPool.LOW_RISK);
+        medRisk  = _calculatePoolInterestShare(lenderAddr, RiskPool.MEDIUM_RISK);
+        highRisk = _calculatePoolInterestShare(lenderAddr, RiskPool.HIGH_RISK);
+        total    = lowRisk + medRisk + highRisk;
+    }
+
     // ============ Borrower Functions ============
 
+    /**
+     * @dev [CHANGE-01] Repayment cooldown check replaces the old loan-window logic.
+     *      After repaying, user must wait REPAYMENT_COOLDOWN (10 hours) before
+     *      taking another loan. No cap on total loans — just the 10h gap.
+     */
     function requestLoan(uint256 amount, uint256 duration)
         external nonReentrant whenNotPaused trackWalletActivity hasValidUsername
     {
         UserProfile storage user = userProfiles[msg.sender];
 
-        require(!user.hasActiveLoan,           "Already has active loan");
-        require(amount >= MIN_LOAN_AMOUNT,      "Amount below minimum");
-        require(duration >= MIN_LOAN_DURATION, "Duration too short");
-        require(duration <= MAX_LOAN_DURATION, "Duration too long");
+        require(!user.hasActiveLoan,            "Already has active loan");
+        require(amount >= MIN_LOAN_AMOUNT,       "Amount below minimum");
+        require(duration >= MIN_LOAN_DURATION,   "Duration too short");
+        require(duration <= MAX_LOAN_DURATION,   "Duration too long");
 
-        _checkAndUpdateLoanWindow(user);
+        // [CHANGE-01] Check 10-hour repayment cooldown
+        if (user.lastRepaymentTime > 0) {
+            require(
+                block.timestamp >= user.lastRepaymentTime + REPAYMENT_COOLDOWN,
+                "Repayment cooldown: wait 10 hours after last repayment"
+            );
+        }
 
+        // Default cooldown (30 days after missed payment)
         if (user.defaults > 0) {
             require(
                 block.timestamp > user.lastDefaultTime + DEFAULT_COOLDOWN_PERIOD,
@@ -791,15 +681,6 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
 
         emit LoanRequested(msg.sender, user.username, amount, duration, assignedPool);
         _issueLoan(msg.sender, amount, duration, maturity.maturityLevel, assignedPool, liveScore);
-    }
-
-    function _checkAndUpdateLoanWindow(UserProfile storage user) internal {
-        if (block.timestamp >= user.loanWindowStart + LOAN_WINDOW_DURATION) {
-            user.loanWindowStart      = block.timestamp;
-            user.loansInCurrentWindow = 0;
-        }
-        require(user.loansInCurrentWindow < MAX_LOANS_PER_WINDOW, "Loan frequency limit reached");
-        user.loansInCurrentWindow++;
     }
 
     function _issueLoan(
@@ -841,16 +722,8 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
 
     /**
      * @dev Repay active loan.
-     *
-     *      MONEY FLOW:
-     *        borrower sends   → principal + interestAmount  (= totalRepayment)
-     *        platformFee      → interestAmount × 2%         → adminWallet (immediately)
-     *        lenderInterest   → interestAmount − fee        → pool interest bucket
-     *        principal        → stays in contract           → recycled pool liquidity
-     *        lenders claim    → proportional share of bucket via claimInterest()
-     *
-     *      [FIX-01] loan.status is now set to REPAID BEFORE pushing to loanHistory,
-     *               so the archived record correctly shows status=REPAID instead of ACTIVE.
+     *      [CHANGE-01] Sets lastRepaymentTime = block.timestamp so the 10-hour
+     *      cooldown starts from this exact moment.
      */
     function repayLoan() external nonReentrant whenNotPaused trackWalletActivity {
         Loan        storage loan = activeLoans[msg.sender];
@@ -870,33 +743,29 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
             effectiveFeeBps -= ELITE_FEE_DISCOUNT_BPS;
         }
 
-        // Interest split: platform fee → adminWallet, rest → pool for lenders
         uint256 platformFee    = (interest * effectiveFeeBps) / 10000;
         uint256 lenderInterest = interest - platformFee;
 
-        // Pull full repayment from borrower in one transfer
         require(
             lendingToken.transferFrom(msg.sender, address(this), totalRepayment),
             "Repayment transfer failed"
         );
 
-        // Platform fee out to admin wallet immediately
         if (platformFee > 0) {
             require(lendingToken.transfer(adminWallet, platformFee), "Fee transfer failed");
             emit PlatformFeeCollected(msg.sender, platformFee, adminWallet);
         }
 
-        // [FIX-01] Set status to REPAID BEFORE archiving, so loanHistory stores
-        // the correct terminal status. Previously this was reversed, causing every
-        // archived loan to show status=ACTIVE (the snapshot captured before the update).
+        // [FIX-01] Set REPAID before archiving
         loan.status = LoanStatus.REPAID;
         loanHistory[msg.sender].push(loan);
         delete activeLoans[msg.sender];
 
         user.hasActiveLoan = false;
         user.successfulRepayments++;
+        // [CHANGE-01] Record repayment time for 10-hour cooldown
+        user.lastRepaymentTime = block.timestamp;
 
-        // Update pool: principal freed back to liquidity, interest into bucket for lenders
         PoolStats storage stats = poolStats[pool];
         stats.totalActiveLoans  -= principal;
         stats.totalInterestPool += lenderInterest;
@@ -909,6 +778,11 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         if (newScore >= MAX_TRUST_SCORE) emit EliteTierReached(msg.sender);
     }
 
+    /**
+     * @dev Mark a loan as defaulted.
+     *      [FIX-05] Status set to DEFAULTED BEFORE pushing to loanHistory,
+     *      so archived record correctly shows DEFAULTED (not ACTIVE).
+     */
     function markDefault(address borrower) external nonReentrant {
         Loan        storage loan = activeLoans[borrower];
         UserProfile storage user = userProfiles[borrower];
@@ -920,8 +794,9 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         uint256  lostAmount = loan.principal;
         RiskPool pool       = loan.riskPool;
 
-        loanHistory[borrower].push(loan);
+        // [FIX-05] Set DEFAULTED before archiving
         loan.status = LoanStatus.DEFAULTED;
+        loanHistory[borrower].push(loan);
         delete activeLoans[borrower];
 
         user.hasActiveLoan   = false;
@@ -971,7 +846,6 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         voucher.vouchCount++;
         voucher.lastVouchTime = block.timestamp;
 
-        // Add vouch bonus — capped at TS_VOUCH_BONUS_MAX inside computeTrustScore
         if (voucheeProfile.vouchBonus < TS_VOUCH_BONUS_MAX) {
             uint256 newBonus = voucheeProfile.vouchBonus + 30;
             voucheeProfile.vouchBonus = newBonus > TS_VOUCH_BONUS_MAX
@@ -1068,11 +942,11 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
     }
 
     function getRepaymentBreakdown(address borrower) external view returns (
-        uint256 principal,      // → stays in pool as liquidity
-        uint256 totalInterest,  // borrower pays this on top
-        uint256 platformFee,    // → adminWallet (2% of interest)
-        uint256 lenderPayout,   // → pool interest bucket for lenders to claim
-        uint256 totalDue        // = principal + totalInterest
+        uint256 principal,
+        uint256 totalInterest,
+        uint256 platformFee,
+        uint256 lenderPayout,
+        uint256 totalDue
     ) {
         Loan   memory loan  = activeLoans[borrower];
         uint256 liveScore   = computeTrustScore(borrower);
@@ -1103,7 +977,7 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         return (poolStats[RiskPool.LOW_RISK], poolStats[RiskPool.MEDIUM_RISK], poolStats[RiskPool.HIGH_RISK]);
     }
 
-    // ============ Admin Functions (onlyOwnerOrDAO after handoff) ============
+    // ============ Admin Functions ============
 
     function updateBorrowingLimits(uint256 _low, uint256 _med, uint256 _high) external onlyOwnerOrDAO {
         require(_low < _med && _med < _high, "Invalid progression");
@@ -1151,7 +1025,6 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         emit EmergencyWithdraw(token, amount);
     }
 
-    // [DEPLOY-01] pause: emergency pauser OR owner/DAO can call
     function pause() external {
         require(
             msg.sender == emergencyPauser ||
@@ -1162,7 +1035,6 @@ contract TrustForge is ReentrancyGuard, Pausable, Ownable {
         _pause();
     }
 
-    // unpause: only owner (DAO after handoff) — deliberate recovery requires governance
     function unpause() external onlyOwner {
         _unpause();
     }

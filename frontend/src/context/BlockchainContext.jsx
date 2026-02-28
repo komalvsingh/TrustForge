@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from "react";
 import {
   BrowserProvider,
@@ -11,19 +10,17 @@ import TrustForgeABI    from "../abis/TrustForge.json";
 import TrustForgeDAOABI from "../abis/TrustForgeDAO.json";
 
 // ─── Contract Addresses ───────────────────────────────────────────────────────
-// Update these after running deploy.js + link.js
 const USDC_ADDRESS       = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"; // Sepolia USDC
-const TRUSTFORGE_ADDRESS = "0x3013e7F2a98F60433BAe85c4E5569A980B0C7Cf7";
-const DAO_ADDRESS        = "0x235bf11EE405648895Bc14c78993aa593D0E3284";
+const TRUSTFORGE_ADDRESS = "0xC48E6f0F59F12C4d1fcDb0eCB7D6d3CcB819F6F5";
+const DAO_ADDRESS        = "0xB16Bdd077856791c105ADA4FC46020f7307b182a";
 
 // ─── Token Decimals ───────────────────────────────────────────────────────────
-// USDC has 6 decimals. NEVER use parseEther/formatEther for USDC amounts.
 const USDC_DECIMALS = 6;
 
-const fmt  = (raw) => formatUnits(raw, USDC_DECIMALS);   // BigInt → "1.500000"
-const prs  = (str) => parseUnits(String(str), USDC_DECIMALS); // "1.5" → 1500000n
+const fmt  = (raw) => formatUnits(raw, USDC_DECIMALS);
+const prs  = (str) => parseUnits(String(str), USDC_DECIMALS);
 
-// ─── Contract Enums (matching Solidity exactly) ───────────────────────────────
+// ─── Contract Enums ───────────────────────────────────────────────────────────
 export const RiskPool = {
   LOW_RISK:    0,
   MEDIUM_RISK: 1,
@@ -53,12 +50,11 @@ export const BlockchainProvider = ({ children }) => {
   const [account,     setAccount]     = useState(null);
   const [provider,    setProvider]    = useState(null);
   const [signer,      setSigner]      = useState(null);
-  const [usdc,        setUsdc]        = useState(null);   // USDC ERC-20
-  const [trustForge,  setTrustForge]  = useState(null);   // TrustForge v5
-  const [dao,         setDao]         = useState(null);   // TrustForgeDAO v3
+  const [usdc,        setUsdc]        = useState(null);
+  const [trustForge,  setTrustForge]  = useState(null);
+  const [dao,         setDao]         = useState(null);
   const [loading,     setLoading]     = useState(false);
 
-  // ── Minimal ERC-20 ABI (USDC) ──────────────────────────────────────────────
   const ERC20_ABI = [
     "function balanceOf(address) view returns (uint256)",
     "function allowance(address,address) view returns (uint256)",
@@ -128,13 +124,12 @@ export const BlockchainProvider = ({ children }) => {
     };
   }, []);
 
-  // ── Internal approval helper (USDC only) ──────────────────────────────────
-  // amount: string or number in human units (e.g. "5.5" = 5.5 USDC)
+  // ── Internal approval helper ───────────────────────────────────────────────
   const _approveUSDC = async (amount) => {
     if (!usdc) throw new Error("USDC contract not initialized");
     const raw = prs(amount);
     const allowance = await usdc.allowance(account, TRUSTFORGE_ADDRESS);
-    if (allowance >= raw) return; // already approved
+    if (allowance >= raw) return;
     const tx = await usdc.approve(TRUSTFORGE_ADDRESS, raw);
     await tx.wait();
   };
@@ -143,7 +138,6 @@ export const BlockchainProvider = ({ children }) => {
      USDC TOKEN FUNCTIONS
      =================================================================== */
 
-  /** Get USDC balance for any address (returns human-readable string, e.g. "5.500000") */
   const getUSDCBalance = async (address) => {
     if (!usdc) return "0";
     try {
@@ -154,7 +148,6 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
-  /** Approve TrustForge to spend USDC. amount = human units string */
   const approveUSDC = async (amount) => {
     if (!usdc) throw new Error("USDC not initialized");
     const tx = await usdc.approve(TRUSTFORGE_ADDRESS, prs(amount));
@@ -162,7 +155,6 @@ export const BlockchainProvider = ({ children }) => {
     return tx;
   };
 
-  /** Get current USDC allowance granted to TrustForge */
   const getUSDCAllowance = async () => {
     if (!usdc || !account) return "0";
     try {
@@ -177,7 +169,6 @@ export const BlockchainProvider = ({ children }) => {
      USERNAME FUNCTIONS
      =================================================================== */
 
-  /** Register username (3–20 chars, alphanumeric + underscore) */
   const registerUsername = async (username) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -189,7 +180,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /** Resolve username → address. Returns null if not found. */
   const getAddressByUsername = async (username) => {
     if (!trustForge) return null;
     try {
@@ -198,7 +188,6 @@ export const BlockchainProvider = ({ children }) => {
     } catch (err) { console.error("getAddressByUsername:", err); return null; }
   };
 
-  /** Check if an address has a registered username */
   const hasUsernameRegistered = async (address) => {
     if (!trustForge) return false;
     try {
@@ -207,21 +196,9 @@ export const BlockchainProvider = ({ children }) => {
   };
 
   /* ===================================================================
-     TRUST SCORE (FICO-STYLE COMPUTED)
+     TRUST SCORE
      =================================================================== */
 
-  /**
-   * Get the live FICO-style trust score (0–1000) for any address.
-   * This is the single source of truth — NOT the stored trustScore field.
-   *
-   * Score breakdown:
-   *   350  Payment History  (repay rate × 350)
-   *   300  Utilization      (1 − debt/limit) × 300
-   *   150  Wallet Age       (maturity level → 0/50/100/150)
-   *   100  Credit Mix       (pools used × 34, capped 100)
-   *   100  Vouch Bonus      (accumulated vouchBonus field)
-   *  −100  Recency Penalty  (recent default, fades over 90 days)
-   */
   const computeTrustScore = async (address) => {
     if (!trustForge) return 0;
     try {
@@ -234,12 +211,6 @@ export const BlockchainProvider = ({ children }) => {
      LENDER FUNCTIONS
      =================================================================== */
 
-  /**
-   * Deposit USDC into a risk pool.
-   * Automatically approves TrustForge to spend USDC first.
-   * @param {string|number} amount  Human-readable USDC (e.g. "10" = 10 USDC)
-   * @param {number}        pool    RiskPool enum (0=LOW, 1=MED, 2=HIGH)
-   */
   const depositToPool = async (amount, pool = RiskPool.LOW_RISK) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -252,11 +223,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /**
-   * Withdraw USDC from a risk pool.
-   * @param {string|number} amount  Human-readable USDC
-   * @param {number}        pool    RiskPool enum
-   */
   const withdrawFromPool = async (amount, pool = RiskPool.LOW_RISK) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -268,7 +234,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /** Claim all pending interest from every pool the lender is in */
   const claimInterest = async () => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -284,12 +249,6 @@ export const BlockchainProvider = ({ children }) => {
      BORROWER FUNCTIONS
      =================================================================== */
 
-  /**
-   * Request a loan. Pool is auto-assigned by computeTrustScore().
-   * Requires: registered username, no active loan, within frequency window.
-   * @param {string|number} amount    Human-readable USDC
-   * @param {number}        duration  Seconds (min 86400 = 1 day, max 15552000 = 180 days)
-   */
   const requestLoan = async (amount, duration) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -301,19 +260,12 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /**
-   * Repay the caller's active loan in full.
-   * Fetches totalRepayment from contract, approves USDC, then repays.
-   * Platform fee (2%) is deducted from interest and sent to adminWallet.
-   * Remaining interest goes to the pool interest bucket for lenders.
-   */
   const repayLoan = async () => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
       setLoading(true);
-      // Fetch exact repayment amount from contract (use raw value for approval)
       const loan       = await trustForge.getActiveLoan(account);
-      const totalRaw   = loan[2]; // totalRepayment at index 2
+      const totalRaw   = loan[2];
       const totalHuman = fmt(totalRaw);
       await _approveUSDC(totalHuman);
       const tx = await trustForge.repayLoan();
@@ -323,11 +275,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /**
-   * Mark a borrower's loan as defaulted.
-   * Callable by ANYONE after dueDate + 3-day grace period.
-   * @param {string} borrowerAddress
-   */
   const markDefault = async (borrowerAddress) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -343,11 +290,6 @@ export const BlockchainProvider = ({ children }) => {
      VOUCH FUNCTIONS
      =================================================================== */
 
-  /**
-   * Vouch for another user by their registered username.
-   * Requirements: voucher needs trust ≥ 500, 2+ repayments, 7-day cooldown.
-   * Adds +30 to vouchee's vouchBonus (capped at 100), visible in computeTrustScore.
-   */
   const vouchForUser = async (voucheeUsername) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -359,7 +301,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /** Check if voucherAddress has vouched for voucheeAddress */
   const hasVouched = async (voucherAddress, voucheeAddress) => {
     if (!trustForge) return false;
     try {
@@ -367,7 +308,6 @@ export const BlockchainProvider = ({ children }) => {
     } catch (err) { console.error("hasVouched:", err); return false; }
   };
 
-  /** Get list of addresses that have vouched for a given address */
   const getUserVouches = async (address) => {
     if (!trustForge) return [];
     try {
@@ -375,7 +315,6 @@ export const BlockchainProvider = ({ children }) => {
     } catch (err) { console.error("getUserVouches:", err); return []; }
   };
 
-  /** Get list of addresses a given address has vouched for */
   const getVouchesGiven = async (address) => {
     if (!trustForge) return [];
     try {
@@ -389,19 +328,18 @@ export const BlockchainProvider = ({ children }) => {
 
   /**
    * Get full user profile.
-   *
    * Contract return tuple (getUserProfile):
    *   [0]  username            string
-   *   [1]  liveTrustScore      uint256  ← computed live score (0–1000)
+   *   [1]  liveTrustScore      uint256
    *   [2]  totalLoansTaken     uint256
    *   [3]  successfulRepayments uint256
    *   [4]  defaults            uint256
    *   [5]  hasActiveLoan       bool
-   *   [6]  walletAge           uint256  (seconds)
-   *   [7]  maturityLevel       uint256  (0–3)
-   *   [8]  maxBorrowingLimit   uint256  (USDC 6-dec)
+   *   [6]  walletAge           uint256 (seconds)
+   *   [7]  maturityLevel       uint256 (0–3)
+   *   [8]  maxBorrowingLimit   uint256 (USDC 6-dec)
    *   [9]  assignedPool        RiskPool enum (0/1/2)
-   *   [10] vouchBonus          uint256  (0–100, feeds into trust score)
+   *   [10] vouchBonus          uint256 (0–100)
    */
   const getUserProfile = async (address) => {
     if (!trustForge) return null;
@@ -409,87 +347,77 @@ export const BlockchainProvider = ({ children }) => {
       const p = await trustForge.getUserProfile(address || account);
       return {
         username:              p[0],
-        liveTrustScore:        Number(p[1]),          // use computeTrustScore() for live value
+        liveTrustScore:        Number(p[1]),
         totalLoansTaken:       Number(p[2]),
         successfulRepayments:  Number(p[3]),
         defaults:              Number(p[4]),
         hasActiveLoan:         p[5],
-        walletAge:             Number(p[6]),           // seconds
-        maturityLevel:         Number(p[7]),           // 0–3
-        maxBorrowingLimit:     fmt(p[8]),              // human-readable USDC
-        assignedPool:          Number(p[9]),           // RiskPool enum
-        vouchBonus:            Number(p[10]),          // 0–100 pts
+        walletAge:             Number(p[6]),
+        maturityLevel:         Number(p[7]),
+        maxBorrowingLimit:     fmt(p[8]),
+        assignedPool:          Number(p[9]),
+        vouchBonus:            Number(p[10]),
       };
     } catch (err) { console.error("getUserProfile:", err); return null; }
   };
 
   /**
    * Get the caller's active loan details.
-   *
    * Contract return tuple (getActiveLoan):
    *   [0]  principal       uint256 (USDC 6-dec)
    *   [1]  interestAmount  uint256 (USDC 6-dec)
    *   [2]  totalRepayment  uint256 (USDC 6-dec)
    *   [3]  dueDate         uint256 (unix timestamp)
    *   [4]  duration        uint256 (seconds)
-   *   [5]  status          LoanStatus enum (0=ACTIVE, 1=REPAID, 2=DEFAULTED)
-   *   [6]  pool            RiskPool enum (0=LOW, 1=MED, 2=HIGH)
+   *   [5]  status          LoanStatus enum
+   *   [6]  pool            RiskPool enum
    *   [7]  isOverdue       bool
-   *
-   * Returns null if no active loan (principal will be 0).
    */
   const getActiveLoan = async (address) => {
     if (!trustForge) return null;
     try {
       const l = await trustForge.getActiveLoan(address || account);
-      if (l[0] === 0n) return null; // no active loan
+      if (l[0] === 0n) return null;
       return {
         principal:      fmt(l[0]),
         interestAmount: fmt(l[1]),
         totalRepayment: fmt(l[2]),
-        dueDate:        Number(l[3]),           // unix timestamp
-        duration:       Number(l[4]),           // seconds
-        status:         Number(l[5]),           // LoanStatus enum
-        pool:           Number(l[6]),           // RiskPool enum
+        dueDate:        Number(l[3]),
+        duration:       Number(l[4]),
+        status:         Number(l[5]),
+        pool:           Number(l[6]),
         isOverdue:      l[7],
       };
     } catch (err) { console.error("getActiveLoan:", err); return null; }
   };
 
   /**
-   * Get the repayment cost breakdown for a borrower's active loan.
-   * Shows exactly where every USDC goes.
-   *
+   * Get repayment cost breakdown.
    * Contract return tuple (getRepaymentBreakdown):
-   *   [0]  principal     — stays in pool as liquidity (recycled)
-   *   [1]  totalInterest — full interest owed by borrower
-   *   [2]  platformFee   — interest × 2% → adminWallet
-   *   [3]  lenderPayout  — interest − fee → pool interest bucket
-   *   [4]  totalDue      — principal + totalInterest (what borrower sends)
-   *
-   * Elite users (score = 1000) pay 1.5% fee instead of 2%.
+   *   [0]  principal
+   *   [1]  totalInterest
+   *   [2]  platformFee   (2% or 1.5% for elite)
+   *   [3]  lenderPayout
+   *   [4]  totalDue
    */
   const getRepaymentBreakdown = async (address) => {
     if (!trustForge) return null;
     try {
       const b = await trustForge.getRepaymentBreakdown(address || account);
       return {
-        principal:    fmt(b[0]),
+        principal:     fmt(b[0]),
         totalInterest: fmt(b[1]),
-        platformFee:  fmt(b[2]),   // → adminWallet (2% or 1.5% for elite)
-        lenderPayout: fmt(b[3]),   // → pool interest bucket for lenders to claim
-        totalDue:     fmt(b[4]),   // what the borrower must send to repayLoan()
+        platformFee:   fmt(b[2]),
+        lenderPayout:  fmt(b[3]),
+        totalDue:      fmt(b[4]),
       };
     } catch (err) { console.error("getRepaymentBreakdown:", err); return null; }
   };
 
   /**
    * Get wallet maturity info.
-   *
    * Contract return struct (WalletMaturity):
-   *   age               seconds since wallet first seen
-   *   maturityLevel     0=<7d, 1=7–30d, 2=30–90d, 3=90d+
-   *   maturityMultiplier 30/50/100/150 (applied to borrowing limit)
+   *   age, maturityLevel, maturityMultiplier
    */
   const getWalletMaturity = async (address) => {
     if (!trustForge) return null;
@@ -505,9 +433,6 @@ export const BlockchainProvider = ({ children }) => {
 
   /**
    * Get stats for a single risk pool.
-   *
-   * Contract return: (totalLiquidity, totalActiveLoanAmount, availableLiquidity,
-   *                   utilizationRate, interestPool, totalDefaulted)
    * utilizationRate is in basis points (10000 = 100%)
    */
   const getPoolStatsForRisk = async (pool = RiskPool.LOW_RISK) => {
@@ -518,20 +443,14 @@ export const BlockchainProvider = ({ children }) => {
         totalLiquidity:        fmt(s[0]),
         totalActiveLoanAmount: fmt(s[1]),
         availableLiquidity:    fmt(s[2]),
-        utilizationRate:       Number(s[3]),  // basis points — divide by 100 for %
+        utilizationRate:       Number(s[3]),
         interestPool:          fmt(s[4]),
         totalDefaulted:        fmt(s[5]),
       };
     } catch (err) { console.error("getPoolStatsForRisk:", err); return null; }
   };
 
-  /**
-   * Get stats for all three pools in one call.
-   *
-   * Contract return: (PoolStats lowRisk, PoolStats medRisk, PoolStats highRisk)
-   * Each PoolStats: { totalLiquidity, totalActiveLoans, totalDefaulted,
-   *                   totalInterestPool, totalLenderDeposits }
-   */
+  /** Get stats for all three pools in one call. */
   const getAllPoolStats = async () => {
     if (!trustForge) return null;
     try {
@@ -553,15 +472,14 @@ export const BlockchainProvider = ({ children }) => {
 
   /**
    * Get lender's deposit and pending interest info.
-   *
    * Contract return tuple (getLenderInfo):
-   *   [0]  depositedLowRisk    USDC 6-dec
-   *   [1]  depositedMedRisk    USDC 6-dec
-   *   [2]  depositedHighRisk   USDC 6-dec
-   *   [3]  totalInterestEarned USDC 6-dec (lifetime claimed)
-   *   [4]  pendingLow          USDC 6-dec (claimable now from LOW pool)
-   *   [5]  pendingMed          USDC 6-dec (claimable now from MED pool)
-   *   [6]  pendingHigh         USDC 6-dec (claimable now from HIGH pool)
+   *   [0]  depositedLowRisk
+   *   [1]  depositedMedRisk
+   *   [2]  depositedHighRisk
+   *   [3]  totalInterestEarned (lifetime claimed)
+   *   [4]  pendingLow
+   *   [5]  pendingMed
+   *   [6]  pendingHigh
    */
   const getLenderInfo = async (address) => {
     if (!trustForge) return null;
@@ -575,25 +493,37 @@ export const BlockchainProvider = ({ children }) => {
         pendingLow:          fmt(i[4]),
         pendingMed:          fmt(i[5]),
         pendingHigh:         fmt(i[6]),
-        // Convenience total pending
         totalPending:        fmt(i[4] + i[5] + i[6]),
       };
     } catch (err) { console.error("getLenderInfo:", err); return null; }
   };
 
   /**
+   * Get claimable interest for a lender, broken down by pool + total.
+   * Calls getClaimableInterest() view on TrustForge v6.
+   * Returns human-readable USDC strings.
+   */
+  const getClaimableInterest = async (address) => {
+    if (!trustForge) return { lowRisk: "0", medRisk: "0", highRisk: "0", total: "0" };
+    try {
+      const c = await trustForge.getClaimableInterest(address || account);
+      return {
+        lowRisk:  fmt(c[0]),
+        medRisk:  fmt(c[1]),
+        highRisk: fmt(c[2]),
+        total:    fmt(c[3]),
+      };
+    } catch (err) {
+      console.error("getClaimableInterest:", err);
+      return { lowRisk: "0", medRisk: "0", highRisk: "0", total: "0" };
+    }
+  };
+
+  /**
    * Get full loan history for a user.
-   *
    * Loan struct field order:
-   *   [0]  borrower        address
-   *   [1]  principal       uint256 (USDC 6-dec)
-   *   [2]  interestAmount  uint256 (USDC 6-dec)
-   *   [3]  totalRepayment  uint256 (USDC 6-dec)
-   *   [4]  startTime       uint256 (unix timestamp)
-   *   [5]  dueDate         uint256 (unix timestamp)
-   *   [6]  duration        uint256 (seconds)
-   *   [7]  status          LoanStatus enum (0=ACTIVE, 1=REPAID, 2=DEFAULTED)
-   *   [8]  riskPool        RiskPool enum (0=LOW, 1=MED, 2=HIGH)
+   *   [0] borrower  [1] principal  [2] interestAmount  [3] totalRepayment
+   *   [4] startTime [5] dueDate    [6] duration        [7] status  [8] riskPool
    */
   const getLoanHistory = async (address) => {
     if (!trustForge) return [];
@@ -607,65 +537,29 @@ export const BlockchainProvider = ({ children }) => {
         startTime:      Number(l[4]),
         dueDate:        Number(l[5]),
         duration:       Number(l[6]),
-        status:         Number(l[7]),   // LoanStatus enum
-        riskPool:       Number(l[8]),   // RiskPool enum
+        status:         Number(l[7]),
+        riskPool:       Number(l[8]),
       }));
     } catch (err) { console.error("getLoanHistory:", err); return []; }
   };
 
   /* ===================================================================
-     FAUCET / TFX BALANCE HELPERS
-     (The lending token is USDC, referred to as TFX in the UI)
-     =================================================================== */
-
-  /** Get USDC (TFX) balance for connected account */
-  const getTFXBalance = async (address) => {
-    return getUSDCBalance(address);
-  };
-
-  /**
-   * Check if user can claim from faucet.
-   * No on-chain faucet contract is deployed yet — always returns false.
-   * When a faucet is deployed, replace this with the actual check.
-   */
-  const canClaimFaucet = async () => {
-    return false;
-  };
-
-  /**
-   * Get faucet info (amount, cooldown etc).
-   * Returns static info since no on-chain faucet contract exists yet.
-   */
-  const getFaucetInfo = async () => {
-    return { faucetAmount: "10", cooldownHours: 24 };
-  };
-
-  /**
-   * Claim TFX from faucet.
-   * No on-chain faucet contract is deployed — throws a user-friendly error.
-   */
-  const claimTFX = async () => {
-    throw new Error("Faucet is not yet available. Please obtain test USDC from the Sepolia faucet.");
-  };
-
-  /* ===================================================================
      BORROW COOLDOWN STATUS
-     Two types of cooldown:
-       1. Default cooldown  — 30 days after a missed payment (contract-enforced)
-       2. Repayment cooldown — 24 hrs after a successful repayment (UX guard)
+     Uses v6 struct field order:
+       0:username  1:trustScore  2:totalLoansTaken  3:successfulRepayments
+       4:defaults  5:hasActiveLoan  6:lastDefaultTime  7:walletFirstSeen
+       8:totalTransactions  9:vouchCount  10:lastActivityTime  11:lastVouchTime
+       12:lastRepaymentTime  13:loanWindowStart  14:vouchBonus
      =================================================================== */
 
   /**
    * Get borrow cooldown status for a user.
+   * Returns: { type, canBorrowAt, secondsRemaining, isCoolingDown }
+   *   type: "none" | "repayment" | "default"
    *
-   * Returns:
-   *   type               "none" | "repayment" | "default"
-   *   canBorrowAt        unix timestamp (0 if no cooldown)
-   *   secondsRemaining   seconds until they can borrow (0 if no cooldown)
-   *   isCoolingDown      bool
-   *
-   * Reads raw userProfiles mapping for lastDefaultTime and lastActivityTime
-   * (these fields are not exposed by getUserProfile view function).
+   * Two cooldown types:
+   *   1. Default cooldown   — 30 days after a missed payment
+   *   2. Repayment cooldown — 10 hours after a successful repayment (v6)
    */
   const getBorrowCooldownStatus = async (address) => {
     if (!trustForge) return { type: "none", canBorrowAt: 0, secondsRemaining: 0, isCoolingDown: false };
@@ -673,22 +567,16 @@ export const BlockchainProvider = ({ children }) => {
       const target = address || account;
       const nowSec = Math.floor(Date.now() / 1000);
 
-      // Read raw profile fields (mapping is public)
       const rawProfile = await trustForge.userProfiles(target);
-      // UserProfile struct field order:
-      // 0:username 1:trustScore 2:totalLoansTaken 3:successfulRepayments
-      // 4:defaults 5:hasActiveLoan 6:lastDefaultTime 7:walletFirstSeen
-      // 8:totalTransactions 9:vouchCount 10:lastActivityTime 11:lastVouchTime
-      // 12:loansInCurrentWindow 13:loanWindowStart 14:vouchBonus
-      const defaultsCount    = Number(rawProfile[4]);
-      const hasActiveLoan    = rawProfile[5];
-      const lastDefaultTime  = Number(rawProfile[6]);
-      const lastActivityTime = Number(rawProfile[10]);
-      const totalLoansTaken  = Number(rawProfile[2]);
-      const successfulRepays = Number(rawProfile[3]);
 
-      // ── 1. Default Cooldown (30 days, contract-enforced) ────────────────
-      const DEFAULT_COOLDOWN_SECS = 30 * 24 * 60 * 60; // 30 days
+      const totalLoansTaken   = Number(rawProfile[2]);
+      const defaultsCount     = Number(rawProfile[4]);
+      const hasActiveLoan     = rawProfile[5];
+      const lastDefaultTime   = Number(rawProfile[6]);
+      const lastRepaymentTime = Number(rawProfile[12]); // v6: lastRepaymentTime
+
+      // ── 1. Default Cooldown (30 days) ──────────────────────────────────
+      const DEFAULT_COOLDOWN_SECS = 30 * 24 * 60 * 60;
       if (defaultsCount > 0 && lastDefaultTime > 0) {
         const canBorrowAt = lastDefaultTime + DEFAULT_COOLDOWN_SECS;
         if (nowSec < canBorrowAt) {
@@ -701,16 +589,10 @@ export const BlockchainProvider = ({ children }) => {
         }
       }
 
-      // ── 2. Post-Repayment Cooldown (24 hrs, UX guard) ───────────────────
-      // Only applies if: user has taken at least one loan, has no active loan,
-      // and made a transaction (repayment) within the last 24 hours.
-      const REPAYMENT_COOLDOWN_SECS = 24 * 60 * 60; // 24 hours
-      if (
-        totalLoansTaken > 0 &&
-        !hasActiveLoan &&
-        lastActivityTime > 0
-      ) {
-        const canBorrowAt = lastActivityTime + REPAYMENT_COOLDOWN_SECS;
+      // ── 2. Post-Repayment Cooldown (10 hours, v6) ──────────────────────
+      const REPAYMENT_COOLDOWN_SECS = 10 * 60 * 60;
+      if (totalLoansTaken > 0 && !hasActiveLoan && lastRepaymentTime > 0) {
+        const canBorrowAt = lastRepaymentTime + REPAYMENT_COOLDOWN_SECS;
         if (nowSec < canBorrowAt) {
           return {
             type: "repayment",
@@ -728,10 +610,30 @@ export const BlockchainProvider = ({ children }) => {
     }
   };
 
-  /**
-   * Get interest rates for a specific risk pool.
-   * Returns basis points (300 = 3%, 800 = 8%).
-   */
+  /* ===================================================================
+     FAUCET / TFX BALANCE HELPERS
+     =================================================================== */
+
+  const getTFXBalance = async (address) => {
+    return getUSDCBalance(address);
+  };
+
+  const canClaimFaucet = async () => {
+    return false;
+  };
+
+  const getFaucetInfo = async () => {
+    return { faucetAmount: "10", cooldownHours: 24 };
+  };
+
+  const claimTFX = async () => {
+    throw new Error("Faucet is not yet available. Please obtain test USDC from the Sepolia faucet.");
+  };
+
+  /* ===================================================================
+     POOL INTEREST RATES
+     =================================================================== */
+
   const getPoolInterestRates = async (pool = RiskPool.LOW_RISK) => {
     if (!trustForge) return null;
     try {
@@ -740,22 +642,18 @@ export const BlockchainProvider = ({ children }) => {
       else if (pool === RiskPool.MEDIUM_RISK) [baseRate, maxRate] = await Promise.all([trustForge.BASE_INTEREST_RATE_MED(),  trustForge.MAX_INTEREST_RATE_MED()]);
       else                                    [baseRate, maxRate] = await Promise.all([trustForge.BASE_INTEREST_RATE_HIGH(), trustForge.MAX_INTEREST_RATE_HIGH()]);
       return {
-        baseRate: Number(baseRate),  // basis points
-        maxRate:  Number(maxRate),   // basis points
-        baseRatePct: Number(baseRate) / 100,  // human % e.g. 3.0
-        maxRatePct:  Number(maxRate)  / 100,  // human % e.g. 8.0
+        baseRate:    Number(baseRate),
+        maxRate:     Number(maxRate),
+        baseRatePct: Number(baseRate) / 100,
+        maxRatePct:  Number(maxRate)  / 100,
       };
     } catch (err) { console.error("getPoolInterestRates:", err); return null; }
   };
 
-  /**
-   * Get deployment / system status.
-   * Use this to show a health dashboard or gate the UI if not ready.
-   *
-   * Contract return (getDeploymentStatus):
-   *   hasLendingToken, hasAdminWallet, hasDAOContract, hasEmergencyPauser,
-   *   daoIsOwner, isNotPaused, currentOwner, currentDAO, currentPauser, currentAdminWallet
-   */
+  /* ===================================================================
+     DEPLOYMENT STATUS
+     =================================================================== */
+
   const getDeploymentStatus = async () => {
     if (!trustForge) return null;
     try {
@@ -771,17 +669,15 @@ export const BlockchainProvider = ({ children }) => {
         currentDAO:         s[7],
         currentPauser:      s[8],
         currentAdminWallet: s[9],
-        // true only if all systems are go
         fullyReady: s[0] && s[1] && s[2] && s[3] && s[4] && s[5],
       };
     } catch (err) { console.error("getDeploymentStatus:", err); return null; }
   };
 
-  /**
-   * Read all contract constants in one batch call.
-   * USDC amounts are formatted to human-readable strings.
-   * Time values are in seconds (divide by 86400 for days).
-   */
+  /* ===================================================================
+     CONSTANTS
+     =================================================================== */
+
   const getConstants = async () => {
     if (!trustForge) return null;
     try {
@@ -794,7 +690,7 @@ export const BlockchainProvider = ({ children }) => {
         maturityLevel1,       maturityLevel2,       maturityLevel3,
         minLoanAmount,        minLoanDuration,      maxLoanDuration,
         gracePeriod,          defaultCooldownPeriod, minInterestAmount,
-        maxLoansPerWindow,    loanWindowDuration,
+        repaymentCooldown,
         lowTrustLimit,        medTrustLimit,        highTrustLimit,
         eliteLimitBonusBps,   eliteFeeDiscountBps,
         maxVouchesPerUser,    vouchCooldown,        vouchPenaltyOnDefault,
@@ -821,8 +717,7 @@ export const BlockchainProvider = ({ children }) => {
         trustForge.GRACE_PERIOD(),
         trustForge.DEFAULT_COOLDOWN_PERIOD(),
         trustForge.MIN_INTEREST_AMOUNT(),
-        trustForge.MAX_LOANS_PER_WINDOW(),
-        trustForge.LOAN_WINDOW_DURATION(),
+        trustForge.REPAYMENT_COOLDOWN(),
         trustForge.LOW_TRUST_LIMIT(),
         trustForge.MED_TRUST_LIMIT(),
         trustForge.HIGH_TRUST_LIMIT(),
@@ -838,64 +733,49 @@ export const BlockchainProvider = ({ children }) => {
       ]);
 
       return {
-        // Trust score system
         initialTrustScore:    Number(initialTrustScore),
         maxTrustScore:        Number(maxTrustScore),
-        // FICO weights (max pts per component)
-        tsPaymentHistoryMax:  Number(tsPaymentHistoryMax),  // 350
-        tsUtilizationMax:     Number(tsUtilizationMax),     // 300
-        tsWalletAgeMax:       Number(tsWalletAgeMax),       // 150
-        tsCreditMixMax:       Number(tsCreditMixMax),       // 100
-        tsRecencyPenaltyMax:  Number(tsRecencyPenaltyMax),  // 100
-        tsVouchBonusMax:      Number(tsVouchBonusMax),      // 100
-        defaultPenaltyFade:   Number(defaultPenaltyFade),   // seconds (90 days)
-        // Risk pool thresholds
-        lowRiskThreshold:     Number(lowRiskThreshold),     // 600
-        mediumRiskThreshold:  Number(mediumRiskThreshold),  // 300
-        // Wallet maturity (seconds)
-        maturityLevel1:       Number(maturityLevel1),       // 7 days
-        maturityLevel2:       Number(maturityLevel2),       // 30 days
-        maturityLevel3:       Number(maturityLevel3),       // 90 days
-        // Loan params
-        minLoanAmount:        fmt(minLoanAmount),           // USDC human
-        minLoanDuration:      Number(minLoanDuration),      // seconds
-        maxLoanDuration:      Number(maxLoanDuration),      // seconds
-        gracePeriod:          Number(gracePeriod),          // seconds
-        defaultCooldownPeriod: Number(defaultCooldownPeriod), // seconds
-        minInterestAmount:    fmt(minInterestAmount),       // USDC human (0.1)
-        maxLoansPerWindow:    Number(maxLoansPerWindow),    // 3
-        loanWindowDuration:   Number(loanWindowDuration),   // seconds (30 days)
-        // Borrowing limits (USDC human)
+        tsPaymentHistoryMax:  Number(tsPaymentHistoryMax),
+        tsUtilizationMax:     Number(tsUtilizationMax),
+        tsWalletAgeMax:       Number(tsWalletAgeMax),
+        tsCreditMixMax:       Number(tsCreditMixMax),
+        tsRecencyPenaltyMax:  Number(tsRecencyPenaltyMax),
+        tsVouchBonusMax:      Number(tsVouchBonusMax),
+        defaultPenaltyFade:   Number(defaultPenaltyFade),
+        lowRiskThreshold:     Number(lowRiskThreshold),
+        mediumRiskThreshold:  Number(mediumRiskThreshold),
+        maturityLevel1:       Number(maturityLevel1),
+        maturityLevel2:       Number(maturityLevel2),
+        maturityLevel3:       Number(maturityLevel3),
+        minLoanAmount:        fmt(minLoanAmount),
+        minLoanDuration:      Number(minLoanDuration),
+        maxLoanDuration:      Number(maxLoanDuration),
+        gracePeriod:          Number(gracePeriod),
+        defaultCooldownPeriod: Number(defaultCooldownPeriod),
+        minInterestAmount:    fmt(minInterestAmount),
+       repaymentCooldown:    Number(repaymentCooldown),      // 36000 seconds
+repaymentCooldownHrs: Number(repaymentCooldown) / 3600, // 10
         lowTrustLimit:        fmt(lowTrustLimit),
         medTrustLimit:        fmt(medTrustLimit),
         highTrustLimit:       fmt(highTrustLimit),
-        // Elite tier
-        eliteLimitBonusBps:   Number(eliteLimitBonusBps),  // 1000 = +10%
-        eliteFeeDiscountBps:  Number(eliteFeeDiscountBps), // 50 = -0.5%
-        // Vouch
+        eliteLimitBonusBps:   Number(eliteLimitBonusBps),
+        eliteFeeDiscountBps:  Number(eliteFeeDiscountBps),
         maxVouchesPerUser:    Number(maxVouchesPerUser),
-        vouchCooldown:        Number(vouchCooldown),        // seconds
+        vouchCooldown:        Number(vouchCooldown),
         vouchPenaltyOnDefault: Number(vouchPenaltyOnDefault),
-        // Platform
-        daoPropMinTrust:      Number(daoPropMinTrust),      // 500
-        platformFeeBps:       Number(platformFeeBps),       // 200 = 2%
-        platformFeePct:       Number(platformFeeBps) / 100, // 2.0
-        maxPlatformFee:       Number(maxPlatformFee),       // 1000 = 10%
-        poolSafetyBuffer:     Number(poolSafetyBuffer),     // 500 = 5%
+        daoPropMinTrust:      Number(daoPropMinTrust),
+        platformFeeBps:       Number(platformFeeBps),
+        platformFeePct:       Number(platformFeeBps) / 100,
+        maxPlatformFee:       Number(maxPlatformFee),
+        poolSafetyBuffer:     Number(poolSafetyBuffer),
       };
     } catch (err) { console.error("getConstants:", err); return null; }
   };
 
   /* ===================================================================
      ADMIN / GOVERNANCE FUNCTIONS
-     (These are called by the DAO via proposal execution after handoff.
-      During initial setup, the deployer wallet can call them directly.)
      =================================================================== */
 
-  /**
-   * [DEPLOY-03] Register DAO contract in TrustForge.
-   * Must be called BEFORE transferOwnershipToDAO().
-   */
   const setDAO = async (daoAddress) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -907,10 +787,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /**
-   * [DEPLOY-01] Set the emergency pauser address.
-   * The pauser can ONLY call pause() — nothing else.
-   */
   const setEmergencyPauser = async (pauserAddress) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -922,14 +798,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /**
-   * [DEPLOY-02] ONE-SHOT atomic DAO handoff.
-   * Sets emergencyPauser, sets daoContract, transfers Ownable ownership.
-   * IRREVERSIBLE — only call after verifying everything is configured.
-   *
-   * After this: DAO owns TrustForge. Deployer wallet loses all admin access.
-   * pauserAddress can still call pause() in emergencies.
-   */
   const transferOwnershipToDAO = async (daoAddress, pauserAddress) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -941,7 +809,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /** Set platform fee. Requires onlyOwnerOrDAO. Max 10% (1000 bps). */
   const setPlatformFee = async (feeBps) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -953,7 +820,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /** Update borrowing limits (USDC human strings → parsed to 6-dec internally) */
   const updateBorrowingLimits = async (lowTrust, medTrust, highTrust) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -967,7 +833,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /** Update interest rates for a specific pool. Rates in basis points. */
   const updatePoolInterestRates = async (pool, baseRate, maxRate) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -979,7 +844,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /** Change the admin (fee recipient) wallet */
   const setAdminWallet = async (newAdminWallet) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -991,7 +855,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /** Toggle between auto-limit (trust-score-based) and manual limits */
   const setAutoLimitEnabled = async (enabled) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -1003,7 +866,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /** Set the minimum interest floor (USDC human string) */
   const setMinInterestAmount = async (amount) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -1015,7 +877,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /** Update vouch parameters: penalty pts per default, max vouches per user */
   const updateVouchParameters = async (penaltyPts, maxVouches) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -1027,10 +888,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /**
-   * Emergency withdraw stuck tokens. Only callable by Ownable owner.
-   * amount is in human USDC string.
-   */
   const emergencyWithdraw = async (tokenAddress, amount) => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -1042,10 +899,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /**
-   * Pause contract. Callable by: emergencyPauser, owner, or DAO.
-   * Does NOT require governance — emergency pauser can call this instantly.
-   */
   const pauseContract = async () => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -1057,10 +910,6 @@ export const BlockchainProvider = ({ children }) => {
     finally { setLoading(false); }
   };
 
-  /**
-   * Unpause contract. Only callable by owner (DAO after handoff).
-   * Resuming requires a DAO governance proposal to pass.
-   */
   const unpauseContract = async () => {
     if (!trustForge) throw new Error("TrustForge not initialized");
     try {
@@ -1110,6 +959,7 @@ export const BlockchainProvider = ({ children }) => {
       getPoolStatsForRisk,
       getAllPoolStats,
       getLenderInfo,
+      getClaimableInterest,   // ← FIX: was missing from context
       getLoanHistory,
       getPoolInterestRates,
       getDeploymentStatus,
@@ -1139,7 +989,7 @@ export const BlockchainProvider = ({ children }) => {
       pauseContract,
       unpauseContract,
 
-      // Constants (static — use getConstants() for live on-chain values)
+      // Constants
       USDC_ADDRESS,
       TRUSTFORGE_ADDRESS,
       DAO_ADDRESS,
